@@ -1,4 +1,4 @@
-# Termux API
+﻿# Termux API
 
 [![Build status](https://github.com/termux/termux-api/workflows/Build/badge.svg)](https://github.com/termux/termux-api/actions)
 [![Join the chat at https://gitter.im/termux/termux](https://badges.gitter.im/termux/termux.svg)](https://gitter.im/termux/termux)
@@ -11,7 +11,7 @@ allowed to call the API methods in this app).
 
 ## Installation
 
-Latest version is `v0.53.0`.
+Upstream base version is `v0.53.0`.
 
 Termux:API application can be obtained from [F-Droid](https://f-droid.org/en/packages/com.termux.api/).
 
@@ -68,3 +68,4 @@ Client scripts which processes command line arguments before calling the
 
 - Wifi network search and connect.
 - Add extra permissions to the app to (un)install apps, stop processes etc.
+
