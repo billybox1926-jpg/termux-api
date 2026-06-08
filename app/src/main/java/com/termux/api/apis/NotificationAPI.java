@@ -32,7 +32,6 @@ import com.termux.shared.termux.TermuxConstants.TERMUX_APP.TERMUX_SERVICE;
 
 import java.io.File;
 import java.io.PrintWriter;
-import java.lang.reflect.Field;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -88,25 +87,25 @@ public class NotificationAPI {
                 NotificationManager m = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
                 String channelId = intent.getStringExtra("id");
                 String channelName = intent.getStringExtra("name");
-                
+
                 if (channelId == null || channelId.equals("")) {
                     ResultReturner.returnData(apiReceiver, intent, out -> out.println("Channel id not specified."));
                     return;
                 }
-                
-                if (intent.getBooleanExtra("delete",false)) {
+
+                if (intent.getBooleanExtra("delete", false)) {
                     m.deleteNotificationChannel(channelId);
-                    ResultReturner.returnData(apiReceiver, intent, out -> out.println("Deleted channel with id \""+channelId+"\"."));
+                    ResultReturner.returnData(apiReceiver, intent, out -> out.println("Deleted channel with id \"" + channelId + "\"."));
                     return;
                 }
-                
+
                 if (channelName == null || channelName.equals("")) {
                     ResultReturner.returnData(apiReceiver, intent, out -> out.println("Cannot create a channel without a name."));
                 }
-                
+
                 NotificationChannel c = new NotificationChannel(channelId, channelName, priorityFromIntent(intent));
                 m.createNotificationChannel(c);
-                ResultReturner.returnData(apiReceiver, intent, out -> out.println("Created channel with id \""+channelId+"\" and name \""+channelName+"\"."));
+                ResultReturner.returnData(apiReceiver, intent, out -> out.println("Created channel with id \"" + channelId + "\" and name \"" + channelName + "\"."));
             } catch (Exception e) {
                 e.printStackTrace();
                 ResultReturner.returnData(apiReceiver, intent, out -> out.println("Could not create/delete channel."));
@@ -115,7 +114,7 @@ public class NotificationAPI {
             ResultReturner.returnData(apiReceiver, intent, out -> out.println("Notification channels are only available on Android 8.0 and higher, use the options for termux-notification instead."));
         }
     }
-    
+
     private static int priorityFromIntent(Intent intent) {
         String priorityExtra = intent.getStringExtra("priority");
         if (priorityExtra == null) priorityExtra = "default";
@@ -185,12 +184,12 @@ public class NotificationAPI {
         final String notificationId = getNotificationId(intent);
 
         String groupKey = intent.getStringExtra("group");
-        
+
         String channel = intent.getStringExtra("channel");
         if (channel == null) {
             channel = CHANNEL_ID;
         }
-        
+
         final NotificationCompat.Builder notification = new NotificationCompat.Builder(context,
                 channel);
         notification.setSmallIcon(R.drawable.ic_event_note_black_24dp);
@@ -247,23 +246,78 @@ public class NotificationAPI {
             String mediaPlay = intent.getStringExtra("media-play");
             String mediaNext = intent.getStringExtra("media-next");
 
-            if (mediaPrevious != null && mediaPause != null && mediaPlay != null && mediaNext != null) {
+            int mediaActionCount = 0;
+            int previousActionIndex = -1;
+            int pauseActionIndex = -1;
+            int playActionIndex = -1;
+            int nextActionIndex = -1;
+
+            if (mediaPrevious != null) {
+                PendingIntent previousIntent = createAction(context, mediaPrevious);
+                previousActionIndex = mediaActionCount++;
+                notification.addAction(new NotificationCompat.Action(android.R.drawable.ic_media_previous, "previous", previousIntent));
+            }
+
+            if (mediaPause != null) {
+                PendingIntent pauseIntent = createAction(context, mediaPause);
+                pauseActionIndex = mediaActionCount++;
+                notification.addAction(new NotificationCompat.Action(android.R.drawable.ic_media_pause, "pause", pauseIntent));
+            }
+
+            if (mediaPlay != null) {
+                PendingIntent playIntent = createAction(context, mediaPlay);
+                playActionIndex = mediaActionCount++;
+                notification.addAction(new NotificationCompat.Action(android.R.drawable.ic_media_play, "play", playIntent));
+            }
+
+            if (mediaNext != null) {
+                PendingIntent nextIntent = createAction(context, mediaNext);
+                nextActionIndex = mediaActionCount++;
+                notification.addAction(new NotificationCompat.Action(android.R.drawable.ic_media_next, "next", nextIntent));
+            }
+
+            if (mediaActionCount > 0) {
                 if (smallIconName == null) {
                     notification.setSmallIcon(android.R.drawable.ic_media_play);
                 }
 
-                PendingIntent previousIntent = createAction(context, mediaPrevious);
-                PendingIntent pauseIntent = createAction(context, mediaPause);
-                PendingIntent playIntent = createAction(context, mediaPlay);
-                PendingIntent nextIntent = createAction(context, mediaNext);
+                int[] compactActions = new int[3];
+                int compactActionCount = 0;
 
-                notification.addAction(new NotificationCompat.Action(android.R.drawable.ic_media_previous, "previous", previousIntent));
-                notification.addAction(new NotificationCompat.Action(android.R.drawable.ic_media_pause, "pause", pauseIntent));
-                notification.addAction(new NotificationCompat.Action(android.R.drawable.ic_media_play, "play", playIntent));
-                notification.addAction(new NotificationCompat.Action(android.R.drawable.ic_media_next, "next", nextIntent));
+                if (previousActionIndex != -1) {
+                    compactActions[compactActionCount++] = previousActionIndex;
+                }
 
-                notification.setStyle(new androidx.media.app.NotificationCompat.MediaStyle()
-                        .setShowActionsInCompactView(0, 1, 3));
+                if (pauseActionIndex != -1) {
+                    compactActions[compactActionCount++] = pauseActionIndex;
+                } else if (playActionIndex != -1) {
+                    compactActions[compactActionCount++] = playActionIndex;
+                }
+
+                if (nextActionIndex != -1 && compactActionCount < compactActions.length) {
+                    compactActions[compactActionCount++] = nextActionIndex;
+                }
+
+                if (pauseActionIndex != -1 && playActionIndex != -1 && compactActionCount < compactActions.length) {
+                    compactActions[compactActionCount++] = playActionIndex;
+                }
+
+                androidx.media.app.NotificationCompat.MediaStyle mediaStyle =
+                        new androidx.media.app.NotificationCompat.MediaStyle();
+                switch (compactActionCount) {
+                    case 1:
+                        mediaStyle.setShowActionsInCompactView(compactActions[0]);
+                        break;
+                    case 2:
+                        mediaStyle.setShowActionsInCompactView(compactActions[0], compactActions[1]);
+                        break;
+                    case 3:
+                        mediaStyle.setShowActionsInCompactView(compactActions[0], compactActions[1], compactActions[2]);
+                        break;
+                    default:
+                        break;
+                }
+                notification.setStyle(mediaStyle);
             }
         }
 
@@ -305,7 +359,7 @@ public class NotificationAPI {
                             buttonText, buttonAction, notificationId);
                     notification.addAction(action);
                 } else {
-                PendingIntent pi = createAction(context, buttonAction);
+                    PendingIntent pi = createAction(context, buttonAction);
                     notification.addAction(new NotificationCompat.Action(android.R.drawable.ic_input_add, buttonText, pi));
                 }
             }
