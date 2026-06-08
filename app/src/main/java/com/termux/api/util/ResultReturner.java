@@ -247,7 +247,31 @@ public abstract class ResultReturner {
                 if (outputSocketAddress == null || outputSocketAddress.isEmpty())
                     throw new IOException("Missing '" + SOCKET_OUTPUT_EXTRA + "' extra");
                 Logger.logDebug(LOG_TAG, "Connecting to output socket \"" + outputSocketAddress + "\"");
-                outputSocket.connect(getApiLocalSocketAddress(ResultReturner.context, "output", outputSocketAddress));
+
+                // Retry connecting to the socket a few times to handle race conditions
+                // where the client may not be ready yet.
+                LocalSocketAddress address = getApiLocalSocketAddress(ResultReturner.context, "output", outputSocketAddress);
+                boolean connected = false;
+                IOException lastException = null;
+                for (int retry = 0; retry < 3 && !connected; retry++) {
+                    try {
+                        if (retry > 0) {
+                            Logger.logDebug(LOG_TAG, "Retry " + retry + " connecting to output socket");
+                            Thread.sleep(50);
+                        }
+                        outputSocket.connect(address);
+                        connected = true;
+                    } catch (IOException e) {
+                        lastException = e;
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
+                }
+                if (!connected) {
+                    throw lastException != null ? lastException : new IOException("Failed to connect to output socket");
+                }
+
                 writer = new PrintWriter(outputSocket.getOutputStream());
 
                 if (resultWriter != null) {

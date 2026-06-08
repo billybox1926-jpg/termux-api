@@ -3,6 +3,7 @@ package com.termux.api.apis;
 import android.content.Context;
 import android.content.Intent;
 import android.content.UriPermission;
+import android.content.BroadcastReceiver;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Build;
@@ -74,45 +75,59 @@ public class SAFAPI {
         }
     }
 
-    public static void onReceive(TermuxApiReceiver apiReceiver, Context context, Intent intent) {
+    public static void onReceive(final TermuxApiReceiver apiReceiver, final Context context, final Intent intent) {
         Logger.logDebug(LOG_TAG, "onReceive");
 
-        String method = intent.getStringExtra("safmethod");
+        final String method = intent.getStringExtra("safmethod");
         if (method == null) {
             Logger.logError(LOG_TAG, "safmethod extra null");
             return;
         }
-        try {
-            switch (method) {
-                case "getManagedDocumentTrees":
-                    getManagedDocumentTrees(apiReceiver, context, intent);
-                    break;
-                case "manageDocumentTree":
-                    manageDocumentTree(context, intent);
-                    break;
-                case "writeDocument":
-                    writeDocument(apiReceiver, context, intent);
-                    break;
-                case "createDocument":
-                    createDocument(apiReceiver, context, intent);
-                    break;
-                case "readDocument":
-                    readDocument(apiReceiver, context, intent);
-                    break;
-                case "listDirectory":
-                    listDirectory(apiReceiver, context, intent);
-                    break;
-                case "removeDocument":
-                    removeDocument(apiReceiver, context, intent);
-                    break;
-                case "statURI":
-                    statURI(apiReceiver, context, intent);
-                    break;
-                default:
-                    Logger.logError(LOG_TAG, "Unrecognized safmethod: " + "'" + method + "'");
+
+        // manageDocumentTree starts an Activity and must run on the main thread
+        if ("manageDocumentTree".equals(method)) {
+            manageDocumentTree(context, intent);
+            return;
+        }
+
+        // All other SAF methods perform file I/O and must not block the main thread
+        final BroadcastReceiver.PendingResult asyncResult = apiReceiver.goAsync();
+        new Thread(() -> {
+            try {
+                handleSAFMethod(apiReceiver, context, intent, method);
+            } catch (Exception e) {
+                Logger.logStackTraceWithMessage(LOG_TAG, "Error in SAFAPI", e);
+            } finally {
+                asyncResult.finish();
             }
-        } catch (Exception e) {
-            Logger.logStackTraceWithMessage(LOG_TAG, "Error in SAFAPI", e);
+        }).start();
+    }
+
+    private static void handleSAFMethod(TermuxApiReceiver apiReceiver, Context context, Intent intent, String method) {
+        switch (method) {
+            case "getManagedDocumentTrees":
+                getManagedDocumentTrees(apiReceiver, context, intent);
+                break;
+            case "writeDocument":
+                writeDocument(apiReceiver, context, intent);
+                break;
+            case "createDocument":
+                createDocument(apiReceiver, context, intent);
+                break;
+            case "readDocument":
+                readDocument(apiReceiver, context, intent);
+                break;
+            case "listDirectory":
+                listDirectory(apiReceiver, context, intent);
+                break;
+            case "removeDocument":
+                removeDocument(apiReceiver, context, intent);
+                break;
+            case "statURI":
+                statURI(apiReceiver, context, intent);
+                break;
+            default:
+                Logger.logError(LOG_TAG, "Unrecognized safmethod: " + "'" + method + "'");
         }
     }
     
