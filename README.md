@@ -1,4 +1,4 @@
-﻿# Termux API
+# Termux API
 
 [![Build status](https://github.com/termux/termux-api/workflows/Build/badge.svg)](https://github.com/termux/termux-api/actions)
 [![Join the chat at https://gitter.im/termux/termux](https://badges.gitter.im/termux/termux.svg)](https://gitter.im/termux/termux)
@@ -67,5 +67,13 @@ Client scripts which processes command line arguments before calling the
 ## Ideas
 
 - Wifi network search and connect.
-- Add extra permissions to the app to (un)install apps, stop processes etc.
+- Add extra permissions to the app to (un)install apps, stop processes etc.rnrn## Fork status
 
+This fork is maintained on `workbench-api-updates` while fixes are consolidated for upstream pull requests.
+
+Current local build proof:
+
+```powershell
+.\gradlew.bat clean :app:assembleDebug --no-daemon --console=plain
+
+The current workbench branch exposes the standard debug variant only. Do not install that APK over an F-Droid Termux:API install unless intentionally replacing the matched Termux stack. Runtime testing should use either a matched local Termux app/API/package stack or a restored standalone debug target whose package-side wrappers deliberately target the debug API package.r
