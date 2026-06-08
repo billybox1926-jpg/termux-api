@@ -24,6 +24,23 @@ Signature keys of all offered builds are different. Before you switch the
 installation source, you will have to uninstall the Termux application and
 all currently installed plugins. Check https://github.com/termux/termux-app#Installation for more info.
 
+### Antivirus reports
+
+Some antivirus or device-security applications may report Termux:API as
+potentially unwanted software. Termux:API exposes many Android APIs to the
+Termux command line and therefore requests a broad permission set, which can
+trigger heuristic scanners even for official builds.
+
+Use builds from trusted Termux distribution channels, such as F-Droid or this
+repository's release and workflow artifacts. Per-commit debug builds are signed
+with a different key than release builds and may be more likely to trigger
+security software warnings.
+
+If a security product reports Termux:API, verify the build source and version,
+then report suspected false positives to the security vendor with the APK hash,
+APK source URL, Termux:API version, Android version, device model, and scanner
+name/version.
+
 ## License
 
 Released under the [GPLv3 license](http://www.gnu.org/licenses/gpl-3.0.en.html).
