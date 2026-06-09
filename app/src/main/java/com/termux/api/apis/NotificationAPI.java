@@ -296,16 +296,22 @@ public class NotificationAPI {
             String mediaPause = intent.getStringExtra("media-pause");
             String mediaPlay = intent.getStringExtra("media-play");
             String mediaNext = intent.getStringExtra("media-next");
+            // Fix for issue #881: allow specifying media_state to show only play or only pause
+            String mediaState = intent.getStringExtra("media-state");
 
             boolean hasAnyButton = mediaPrevious != null || mediaPause != null || mediaPlay != null || mediaNext != null;
 
             if (hasAnyButton) {
                 if (smallIconName == null) {
-                    notification.setSmallIcon(android.R.drawable.ic_media_play);
+                    // Fix for issue #881: use appropriate icon based on media state
+                    if ("playing".equals(mediaState)) {
+                        notification.setSmallIcon(android.R.drawable.ic_media_pause);
+                    } else {
+                        notification.setSmallIcon(android.R.drawable.ic_media_play);
+                    }
                 }
 
                 int actionCount = 0;
-                int compactIndex = 0;
 
                 if (mediaPrevious != null) {
                     PendingIntent previousIntent = createMutableAction(context, mediaPrevious, actionCount);
@@ -313,16 +319,33 @@ public class NotificationAPI {
                     actionCount++;
                 }
 
-                if (mediaPause != null) {
-                    PendingIntent pauseIntent = createMutableAction(context, mediaPause, actionCount);
-                    notification.addAction(new NotificationCompat.Action(android.R.drawable.ic_media_pause, "pause", pauseIntent));
-                    actionCount++;
-                }
-
-                if (mediaPlay != null) {
-                    PendingIntent playIntent = createMutableAction(context, mediaPlay, actionCount);
-                    notification.addAction(new NotificationCompat.Action(android.R.drawable.ic_media_play, "play", playIntent));
-                    actionCount++;
+                // Fix for issue #881: if media_state is "playing", show pause; if "paused", show play
+                if ("playing".equals(mediaState)) {
+                    // Show pause button (or both if explicitly provided)
+                    if (mediaPause != null) {
+                        PendingIntent pauseIntent = createMutableAction(context, mediaPause, actionCount);
+                        notification.addAction(new NotificationCompat.Action(android.R.drawable.ic_media_pause, "pause", pauseIntent));
+                        actionCount++;
+                    }
+                } else if ("paused".equals(mediaState)) {
+                    // Show play button (or both if explicitly provided)
+                    if (mediaPlay != null) {
+                        PendingIntent playIntent = createMutableAction(context, mediaPlay, actionCount);
+                        notification.addAction(new NotificationCompat.Action(android.R.drawable.ic_media_play, "play", playIntent));
+                        actionCount++;
+                    }
+                } else {
+                    // No media_state specified: show both if provided (backward compatible)
+                    if (mediaPause != null) {
+                        PendingIntent pauseIntent = createMutableAction(context, mediaPause, actionCount);
+                        notification.addAction(new NotificationCompat.Action(android.R.drawable.ic_media_pause, "pause", pauseIntent));
+                        actionCount++;
+                    }
+                    if (mediaPlay != null) {
+                        PendingIntent playIntent = createMutableAction(context, mediaPlay, actionCount);
+                        notification.addAction(new NotificationCompat.Action(android.R.drawable.ic_media_play, "play", playIntent));
+                        actionCount++;
+                    }
                 }
 
                 if (mediaNext != null) {
