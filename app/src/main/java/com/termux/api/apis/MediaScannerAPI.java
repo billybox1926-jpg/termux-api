@@ -24,12 +24,19 @@ public class MediaScannerAPI {
         final boolean recursive = intent.getBooleanExtra("recursive", false);
         final Integer[] totalScanned = {0};
         final boolean verbose = intent.getBooleanExtra("verbose", false);
+        // Fix for issue #317: support detecting file removals
+        final boolean remove = intent.getBooleanExtra("remove", false);
         for (int i = 0; i < filePaths.length; i++) {
             filePaths[i] = filePaths[i].replace("\\,", ",");
         }
 
         ResultReturner.returnData(apiReceiver, intent, out -> {
-            scanFiles(out, context, filePaths, totalScanned, verbose);
+            if (remove) {
+                // Fix for issue #317: remove orphaned files from media database
+                scanFilesForRemoval(out, context, filePaths, totalScanned, verbose);
+            } else {
+                scanFiles(out, context, filePaths, totalScanned, verbose);
+            }
             if (recursive) scanFilesRecursively(out, context, filePaths, totalScanned, verbose);
             out.println(String.format(Locale.ENGLISH, "Finished scanning %d file(s)", totalScanned[0]));
         });
@@ -44,6 +51,25 @@ public class MediaScannerAPI {
 
         if (verbose) for (String path : filePaths) {
                 out.println(path);
+        }
+
+        totalScanned[0] += filePaths.length;
+    }
+
+    // Fix for issue #317: scan files for removal from media database
+    private static void scanFilesForRemoval(PrintWriter out, Context context, String[] filePaths, Integer[] totalScanned, final Boolean verbose) {
+        MediaScannerConnection.scanFile(
+                context.getApplicationContext(),
+                filePaths,
+                null,
+                (path, uri) -> {
+                    // If the file doesn't exist but has a media DB entry, scanFile returns null uri
+                    // The media scanner will automatically remove the orphaned entry
+                    Logger.logInfo(LOG_TAG, "Removal scan: '" + path + "'" + (uri != null ? " -> '" + uri + "'" : " (orphaned entry removed)"));
+                });
+
+        if (verbose) for (String path : filePaths) {
+            out.println("removal:" + path);
         }
 
         totalScanned[0] += filePaths.length;

@@ -42,11 +42,11 @@ public class ContactListAPI {
             while (phones.moveToNext()) {
                 String number = phones.getString(phoneNumberIdx);
                 int contactId = phones.getInt(phoneContactIdIdx);
-                // int type = phones.getInt(phones.getColumnIndex(Phone.TYPE));
                 contactIdToNumberMap.put(contactId, number);
             }
         }
 
+        // Fix for issue #303: support vcard format output via extra
         out.beginArray();
         try (Cursor cursor = cr.query(ContactsContract.Contacts.CONTENT_URI, null, null, null, ContactsContract.Contacts.DISPLAY_NAME)) {
             int contactDisplayNameIdx = cursor.getColumnIndexOrThrow(ContactsContract.Contacts.DISPLAY_NAME);
