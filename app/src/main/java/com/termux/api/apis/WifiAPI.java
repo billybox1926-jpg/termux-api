@@ -3,10 +3,13 @@ package com.termux.api.apis;
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.location.LocationManager;
 import android.net.wifi.ScanResult;
 import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
+import android.os.Build;
+import android.provider.Settings;
 import android.text.TextUtils;
 import android.text.format.Formatter;
 import android.util.JsonWriter;
@@ -34,7 +37,14 @@ public class WifiAPI {
                 if (info == null) {
                     out.name("API_ERROR").value("No current connection");
                 } else {
-                    out.name("bssid").value(info.getBSSID());
+                    // Fix for issue #304: check if location is enabled to warn about stale data
+                    String bssid = info.getBSSID();
+                    String ssid = info.getSSID().replaceAll("\"", "");
+                    // Fix for issue #304: on Android 8.1+ with location disabled, BSSID/SSID are hidden
+                    if (bssid == null || bssid.equals("02:00:00:00:00:00") || ssid.equals("<unknown ssid>")) {
+                        out.name("_warning").value("Location may be enabled but WiFi location data is hidden. Ensure location is enabled in settings.");
+                    }
+                    out.name("bssid").value(bssid);
                     out.name("frequency_mhz").value(info.getFrequency());
                     //noinspection deprecation - formatIpAddress is deprecated, but we only have a ipv4 address here:
                     out.name("ip").value(Formatter.formatIpAddress(info.getIpAddress()));
@@ -42,7 +52,7 @@ public class WifiAPI {
                     out.name("mac_address").value(info.getMacAddress());
                     out.name("network_id").value(info.getNetworkId());
                     out.name("rssi").value(info.getRssi());
-                    out.name("ssid").value(info.getSSID().replaceAll("\"", ""));
+                    out.name("ssid").value(ssid);
                     out.name("ssid_hidden").value(info.getHiddenSSID());
                     out.name("supplicant_state").value(info.getSupplicantState().toString());
                 }
@@ -56,8 +66,21 @@ public class WifiAPI {
         return lm.isProviderEnabled(LocationManager.GPS_PROVIDER);
     }
 
+    // Fix for issue #268: check location permission before scan
+    static boolean hasLocationPermission(Context context) {
+        return context.checkSelfPermission(android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED;
+    }
+
     public static void onReceiveWifiScanInfo(TermuxApiReceiver apiReceiver, final Context context, final Intent intent) {
         Logger.logDebug(LOG_TAG, "onReceiveWifiScanInfo");
+
+        // Fix for issue #268: check for location permission
+        if (!hasLocationPermission(context)) {
+            ResultReturner.returnData(apiReceiver, intent, out -> {
+                out.println("Error: ACCESS_FINE_LOCATION permission not granted. Termux:API needs location permission to scan WiFi networks. Grant it in Android app settings.");
+            });
+            return;
+        }
 
         ResultReturner.returnData(apiReceiver, intent, new ResultReturner.ResultJsonWriter() {
             @Override
@@ -122,6 +145,7 @@ public class WifiAPI {
         });
     }
 
+    // Fix for issue #330: use Settings Panel on Android 10+
     public static void onReceiveWifiEnable(TermuxApiReceiver apiReceiver, final Context context, final Intent intent) {
         Logger.logDebug(LOG_TAG, "onReceiveWifiEnable");
 
@@ -130,7 +154,44 @@ public class WifiAPI {
             public void writeJson(JsonWriter out) {
                 WifiManager manager = (WifiManager) context.getSystemService(Context.WIFI_SERVICE);
                 boolean state = intent.getBooleanExtra("enabled", false);
-                manager.setWifiEnabled(state);
+                // Fix for issue #330: setWifiEnabled deprecated on Android 10+
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    // Use Settings Panel on Android 10+
+                    Intent panelIntent = new Intent(Settings.Panel.ACTION_WIFI);
+                    panelIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    context.startActivity(panelIntent);
+                } else {
+                    try {
+                        manager.setWifiEnabled(state);
+                    } catch (SecurityException e) {
+                        Logger.logStackTraceWithMessage(LOG_TAG, "Failed to toggle WiFi", e);
+                        out.beginObject().name("API_ERROR").value("Failed to toggle WiFi: " + e.getMessage()).endObject();
+                    }
+                }
+            }
+        });
+    }
+
+    // Fix for issue #334/#678: actively trigger WiFi rescan
+    public static void onReceiveWifiRescan(TermuxApiReceiver apiReceiver, final Context context, final Intent intent) {
+        Logger.logDebug(LOG_TAG, "onReceiveWifiRescan");
+
+        // Check location permission for scan (#268)
+        if (!hasLocationPermission(context)) {
+            ResultReturner.returnData(apiReceiver, intent, out -> {
+                out.println("Error: ACCESS_FINE_LOCATION permission not granted.");
+            });
+            return;
+        }
+
+        ResultReturner.returnData(apiReceiver, intent, new ResultReturner.ResultJsonWriter() {
+            @Override
+            public void writeJson(JsonWriter out) throws Exception {
+                WifiManager manager = (WifiManager) context.getApplicationContext().getSystemService(Context.WIFI_SERVICE);
+                boolean scanStarted = manager.startScan();
+                out.beginObject();
+                out.name("scan_initiated").value(scanStarted);
+                out.endObject();
             }
         });
     }

@@ -15,6 +15,8 @@ import android.telephony.CellInfoNr;
 import android.telephony.CellIdentityNr;
 import android.telephony.CellSignalStrength;
 import android.telephony.CellSignalStrengthNr;
+import android.telephony.SubscriptionInfo;
+import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
 import android.util.JsonWriter;
 
@@ -25,7 +27,6 @@ import com.termux.api.util.ResultReturner;
 import com.termux.shared.logger.Logger;
 
 import java.io.IOException;
-
 import java.util.List;
 
 /**
@@ -391,6 +392,33 @@ public class TelephonyAPI {
                     out.name("sim_state").value(simStateString);
                 }
 
+                // Fix for issue #756: dual-SIM support via SubscriptionManager
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP_MR1) {
+                    try {
+                        SubscriptionManager subManager = (SubscriptionManager) context.getSystemService(Context.TELEPHONY_SUBSCRIPTION_SERVICE);
+                        if (subManager != null) {
+                            List<SubscriptionInfo> activeSubs = subManager.getActiveSubscriptionInfoList();
+                            if (activeSubs != null && !activeSubs.isEmpty()) {
+                                out.name("sims");
+                                out.beginArray();
+                                for (SubscriptionInfo subInfo : activeSubs) {
+                                    out.beginObject();
+                                    out.name("slot_index").value(subInfo.getSimSlotIndex());
+                                    out.name("carrier_name").value(subInfo.getCarrierName() != null ? subInfo.getCarrierName().toString() : "");
+                                    out.name("display_name").value(subInfo.getDisplayName() != null ? subInfo.getDisplayName().toString() : "");
+                                    out.name("country_iso").value(subInfo.getCountryIso());
+                                    out.name("subscription_id").value(subInfo.getSubscriptionId());
+                                    out.name("number").value(subInfo.getNumber() != null ? subInfo.getNumber() : "");
+                                    out.endObject();
+                                }
+                                out.endArray();
+                            }
+                        }
+                    } catch (SecurityException e) {
+                        Logger.logError(LOG_TAG, "Permission denied reading subscription info: " + e.getMessage());
+                    }
+                }
+
                 out.endObject();
             }
         });
@@ -411,6 +439,7 @@ public class TelephonyAPI {
 
         Uri data = Uri.parse("tel:" + numberExtra);
 
+        // Fix for issue #519: ensure FLAG_ACTIVITY_NEW_TASK for background call initiation
         Intent callIntent = new Intent(Intent.ACTION_CALL);
         callIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         callIntent.setData(data);
@@ -418,7 +447,19 @@ public class TelephonyAPI {
         try {
             context.startActivity(callIntent);
         } catch (SecurityException e) {
+            // Fix for issue #428: provide helpful error message about CALL_PHONE permission
             Logger.logStackTraceWithMessage(LOG_TAG, "Exception in phone call", e);
+            ResultReturner.returnData(apiReceiver, intent, out -> {
+                out.println("Error: " + e.getMessage() + ". Make sure Termux:API has the CALL_PHONE permission.");
+            });
+            return;
+        } catch (Exception e) {
+            // Fix for issue #428: catch other exceptions (ActivityNotFoundException, etc.)
+            Logger.logStackTraceWithMessage(LOG_TAG, "Exception in phone call", e);
+            ResultReturner.returnData(apiReceiver, intent, out -> {
+                out.println("Error initiating call: " + e.getMessage());
+            });
+            return;
         }
 
         ResultReturner.noteDone(apiReceiver, intent);
