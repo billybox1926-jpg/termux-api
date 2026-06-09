@@ -241,6 +241,8 @@ public class LocationAPI {
         long elapsedMs = (SystemClock.elapsedRealtimeNanos() - lastKnownLocation.getElapsedRealtimeNanos()) / 1000000;
         out.name("elapsedMs").value(elapsedMs);
         out.name("provider").value(lastKnownLocation.getProvider());
+        // Fix for issue #247: add GPS fix time from location.getTime()
+        out.name("time").value(lastKnownLocation.getTime());
         out.endObject();
     }
 }

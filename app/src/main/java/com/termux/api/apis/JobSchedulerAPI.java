@@ -159,6 +159,8 @@ public class JobSchedulerAPI {
         if (!fileCheckMsg.isEmpty()) {
             Logger.logErrorPrivate(LOG_TAG, "schedule_job: " + String.format(fileCheckMsg, scriptPath));
             out.println(String.format(fileCheckMsg, scriptPath));
+            // Fix for issue #573: provide actionable error for job scheduler script issues
+            out.println("Error: Job not scheduled. " + String.format(fileCheckMsg, scriptPath));
             return;
         }
 
