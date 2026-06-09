@@ -4,6 +4,7 @@ import android.app.IntentService;
 import android.content.Context;
 import android.content.Intent;
 import android.media.AudioManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.speech.tts.TextToSpeech;
 import android.speech.tts.TextToSpeech.Engine;
@@ -16,6 +17,7 @@ import com.termux.shared.data.IntentUtils;
 import com.termux.shared.logger.Logger;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.util.Locale;
@@ -33,11 +35,11 @@ public class TextToSpeechAPI {
         // Fix for issue #266: support stopping in-progress TTS
         boolean stop = intent.getBooleanExtra("stop", false);
         if (stop) {
-            synchronized (ttsLock) {
-                if (mTts != null) {
-                    mTts.stop();
-                    mTts.shutdown();
-                    mTts = null;
+            synchronized (TextToSpeechService.ttsLock) {
+                if (TextToSpeechService.mTts != null) {
+                    TextToSpeechService.mTts.stop();
+                    TextToSpeechService.mTts.shutdown();
+                    TextToSpeechService.mTts = null;
                 }
             }
             ResultReturner.returnData(context, intent, out -> out.println("TTS stopped"));
@@ -146,6 +148,34 @@ public class TextToSpeechAPI {
                             }
                         } catch (InterruptedException e) {
                             Logger.logError(LOG_TAG, "Interrupted awaiting TTS initialization");
+                            return;
+                        }
+
+                        // Fix for issue #356: support TTS output to file
+                        String outputFile = intent.getStringExtra("output_file");
+                        boolean synthesizeToFile = outputFile != null && !outputFile.isEmpty();
+
+                        if (synthesizeToFile) {
+                            // Fix for issue #356: read all text, then synthesize to file
+                            StringBuilder sb = new StringBuilder();
+                            try (BufferedReader reader = new BufferedReader(new InputStreamReader(in))) {
+                                String line;
+                                while ((line = reader.readLine()) != null) {
+                                    if (sb.length() > 0) sb.append("\n");
+                                    sb.append(line);
+                                }
+                            }
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                                File outFile = new File(outputFile);
+                                int result = mTts.synthesizeToFile(sb.toString(), null, outFile, "synthesizeToFile");
+                                if (result == TextToSpeech.SUCCESS) {
+                                    out.println("TTS output written to: " + outputFile);
+                                } else {
+                                    out.println("Error: TTS synthesizeToFile failed with code " + result);
+                                }
+                            } else {
+                                out.println("Error: TTS file output requires Android 5.0+");
+                            }
                             return;
                         }
 

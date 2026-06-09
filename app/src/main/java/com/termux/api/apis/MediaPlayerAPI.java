@@ -123,14 +123,14 @@ public class MediaPlayerAPI {
             }
             // Fix for issue #516: initialize MediaSession for headset controls
             if (mediaSession == null) {
-                initMediaSession();
+                initMediaSession(getApplicationContext());
             }
             return mediaPlayer;
         }
 
         // Fix for issue #516: initialize MediaSession for headset button support
-        protected void initMediaSession() {
-            mediaSession = new MediaSession(getApplicationContext(), "TermuxMediaPlayer");
+        protected static void initMediaSession(Context appContext) {
+            mediaSession = new MediaSession(appContext, "TermuxMediaPlayer");
             mediaSession.setFlags(MediaSession.FLAG_HANDLES_MEDIA_BUTTONS |
                     MediaSession.FLAG_HANDLES_TRANSPORT_CONTROLS);
             mediaSession.setCallback(new MediaSession.Callback() {
@@ -174,7 +174,7 @@ public class MediaPlayerAPI {
         }
 
         // Fix for issue #516: update playback state for MediaSession
-        protected void updatePlaybackState(int state) {
+        protected static void updatePlaybackState(int state) {
             if (mediaSession == null) return;
             long actions = PlaybackState.ACTION_PLAY | PlaybackState.ACTION_PAUSE |
                     PlaybackState.ACTION_PLAY_PAUSE | PlaybackState.ACTION_STOP;

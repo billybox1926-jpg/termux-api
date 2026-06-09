@@ -774,7 +774,7 @@ public class DialogAPI {
 
             @Override
             String getResult() {
-                InputResult.index = widgetView.getSelectedItemPosition();
+                inputResult.index = widgetView.getSelectedItemPosition();  // Fix for issue #414: use instance field
                 return widgetView.getSelectedItem().toString();
             }
 
@@ -1089,8 +1089,8 @@ public class DialogAPI {
                 if (button == Dialog.BUTTON_POSITIVE) {
                     inputResult.text = getResult();
                 } else {
-                    // CANCEL or outside tap - reset index to avoid stale value (#541)
-                    InputResult.index = -1;
+                // CANCEL or outside tap - reset index to avoid stale value (#541, #414)
+                    inputResult.index = -1;
                 }
                 return inputResult;
             }
