@@ -47,6 +47,7 @@ import com.termux.api.apis.TorchAPI;
 import com.termux.api.apis.UsbAPI;
 import com.termux.api.apis.VibrateAPI;
 import com.termux.api.apis.VolumeAPI;
+import com.termux.api.apis.MediaControlAPI;
 import com.termux.api.apis.WallpaperAPI;
 import com.termux.api.apis.WifiAPI;
 import com.termux.api.activities.TermuxApiPermissionActivity;
@@ -280,6 +281,9 @@ public class TermuxApiReceiver extends BroadcastReceiver {
                 break;
             case "Volume":
                 VolumeAPI.onReceive(this, context, intent);
+                break;
+            case "MediaControl":
+                MediaControlAPI.onReceive(this, context, intent);
                 break;
             case "Wallpaper":
                 WallpaperAPI.onReceive(context, intent);
