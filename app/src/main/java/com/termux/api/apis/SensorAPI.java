@@ -84,6 +84,7 @@ public class SensorAPI {
             if (result.type == ResultType.SINGLE) {
                 // post one-time result now, rather than an active stream
                 postSensorCommandResult(context, intent, result);
+                stopSelf();
             }
             return Service.START_NOT_STICKY;
         }
@@ -131,7 +132,7 @@ public class SensorAPI {
                 try {
                     semaphore.acquire();
                     for (int j = 0; j < sensorEvent.values.length; ++j) {
-                        sensorValuesArray.put(j, sensorEvent.values[j]);
+                        sensorValuesArray.put(j, (double) sensorEvent.values[j]);
                     }
                     JSONObject sensorInfo = new JSONObject();
                     sensorInfo.put("values", sensorValuesArray);

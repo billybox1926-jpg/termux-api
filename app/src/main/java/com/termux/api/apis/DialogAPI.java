@@ -977,6 +977,7 @@ public class DialogAPI {
 
                 // Dialog interface that will display to user
                 dialog = getDialogBuilder(activity, clickListener).create();
+                dialog.setCanceledOnTouchOutside(false);
                 dialog.show();
             }
 
