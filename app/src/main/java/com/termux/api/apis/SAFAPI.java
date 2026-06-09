@@ -34,6 +34,8 @@ public class SAFAPI {
     public static class SAFActivity extends AppCompatActivity {
 
         private boolean resultReturned = false;
+        // Fix for issue #499: track if we're waiting for SAF result
+        private boolean waitingForResult = false;
 
         private static final String LOG_TAG = "SAFActivity";
 
@@ -58,7 +60,8 @@ public class SAFAPI {
             } else {
                 i = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
             }
-            startActivityForResult(i, 0);
+            waitingForResult = true;  // Fix for issue #499
+            startActivityForResult(i, 1001);  // Fix for issue #499: use non-zero request code
         }
 
         @Override
@@ -66,6 +69,13 @@ public class SAFAPI {
             Logger.logDebug(LOG_TAG, "onDestroy");
 
             super.onDestroy();
+            // Fix for issue #499: don't return empty result if still waiting for SAF
+            if (!resultReturned && waitingForResult) {
+                // Activity destroyed while waiting - don't return yet, let onActivityResult handle it
+                // when the SAF activity returns
+                finishAndRemoveTask();
+                return;
+            }
             finishAndRemoveTask();
             if (! resultReturned) {
                 try {
@@ -82,6 +92,7 @@ public class SAFAPI {
             Logger.logVerbose(LOG_TAG, "onActivityResult: requestCode: " + requestCode + ", resultCode: "  + resultCode + ", data: "  + IntentUtils.getIntentString(data));
 
             super.onActivityResult(requestCode, resultCode, data);
+            waitingForResult = false;  // Fix for issue #499
             if (data != null) {
                 Uri uri = data.getData();
                 if (uri != null) {

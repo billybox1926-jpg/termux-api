@@ -61,6 +61,21 @@ public class ClipboardAPI {
                         // Fix for issue #728: Clipboard set is already on a background thread via WithStringInput;
                         // no additional threading needed. goAsync() is handled by ResultReturner.
                         clipboard.setPrimaryClip(ClipData.newPlainText("", inputString));
+                        // Fix for issue #332: auto-clear sensitive clipboard after timeout
+                        boolean sensitive = intent.getBooleanExtra("sensitive", false);
+                        if (sensitive) {
+                            int timeout = intent.getIntExtra("sensitive_timeout", 30);
+                            new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+                                try {
+                                    if (clipboard.getPrimaryClip() != null) {
+                                        clipboard.setPrimaryClip(ClipData.newPlainText("", ""));
+                                        Logger.logDebug(LOG_TAG, "Sensitive clipboard auto-cleared after " + timeout + "s");
+                                    }
+                                } catch (Exception e) {
+                                    Logger.logStackTraceWithMessage(LOG_TAG, "Failed to auto-clear clipboard", e);
+                                }
+                            }, timeout * 1000L);
+                        }
                     }
                 });
             } else {
@@ -87,6 +102,21 @@ public class ClipboardAPI {
             if (newClipText != null) {
                 // Set clip.
                 clipboard.setPrimaryClip(ClipData.newPlainText("", newClipText));
+                // Fix for issue #332: auto-clear sensitive clipboard after timeout
+                boolean sensitive = intent.getBooleanExtra("sensitive", false);
+                if (sensitive) {
+                    int timeout = intent.getIntExtra("sensitive_timeout", 30);
+                    new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+                        try {
+                            if (clipboard.getPrimaryClip() != null) {
+                                clipboard.setPrimaryClip(ClipData.newPlainText("", ""));
+                                Logger.logDebug(LOG_TAG, "Sensitive clipboard auto-cleared after " + timeout + "s");
+                            }
+                        } catch (Exception e) {
+                            Logger.logStackTraceWithMessage(LOG_TAG, "Failed to auto-clear clipboard", e);
+                        }
+                    }, timeout * 1000L);
+                }
             }
 
             ResultReturner.returnData(apiReceiver, intent, out -> {
