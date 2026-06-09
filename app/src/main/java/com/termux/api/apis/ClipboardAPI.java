@@ -70,9 +70,13 @@ public class ClipboardAPI {
                         int itemCount = clipData.getItemCount();
                         for (int i = 0; i < itemCount; i++) {
                             Item item = clipData.getItemAt(i);
-                            CharSequence text = item.coerceToText(context);
-                            if (!TextUtils.isEmpty(text)) {
-                                out.print(text);
+                            try {
+                                CharSequence text = item.coerceToText(context);
+                                if (!TextUtils.isEmpty(text)) {
+                                    out.print(text);
+                                }
+                            } catch (Exception e) {
+                                Logger.logError(LOG_TAG, "Failed to coerce clipboard item to text: " + e.getMessage());
                             }
                         }
                     }

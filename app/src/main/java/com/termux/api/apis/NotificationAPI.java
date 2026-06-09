@@ -6,6 +6,7 @@ import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
@@ -50,6 +51,17 @@ public class NotificationAPI {
      */
     public static void onReceiveShowNotification(TermuxApiReceiver apiReceiver, final Context context, final Intent intent) {
         Logger.logDebug(LOG_TAG, "onReceiveShowNotification");
+
+        // Request POST_NOTIFICATIONS permission on Android 13+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (context.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                Logger.logError(LOG_TAG, "POST_NOTIFICATIONS permission not granted");
+                ResultReturner.returnData(apiReceiver, intent, out -> {
+                    out.beginObject().name("error").value("POST_NOTIFICATIONS permission not granted. Please grant notification permission in Android settings.").endObject();
+                });
+                return;
+            }
+        }
 
         Pair<NotificationCompat.Builder, String> pair = buildNotification(context, intent);
         NotificationCompat.Builder notification = pair.first;

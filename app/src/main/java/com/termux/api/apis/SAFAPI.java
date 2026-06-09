@@ -53,7 +53,11 @@ public class SAFAPI {
             super.onDestroy();
             finishAndRemoveTask();
             if (! resultReturned) {
-                ResultReturner.returnData(this, getIntent(), out -> out.write(""));
+                try {
+                    ResultReturner.returnData(this, getIntent(), out -> out.write(""));
+                } catch (Exception e) {
+                    Logger.logStackTraceWithMessage(LOG_TAG, "Failed to return SAF result on destroy", e);
+                }
                 resultReturned = true;
             }
         }
