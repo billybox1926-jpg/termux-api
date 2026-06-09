@@ -47,7 +47,8 @@ public class WallpaperAPI {
             Logger.logDebug(LOG_TAG, "onStartCommand");
 
             if (intent.hasExtra("file")) {
-                getWallpaperFromFile(intent);
+                final Intent fIntent = intent;
+                new Thread(() -> getWallpaperFromFile(fIntent)).start();
             } else if (intent.hasExtra("url")) {
                 getWallpaperFromUrl(intent);
             } else {

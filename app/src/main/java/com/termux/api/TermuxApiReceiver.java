@@ -32,6 +32,7 @@ import com.termux.api.apis.NotificationAPI;
 import com.termux.api.apis.NotificationListAPI;
 import com.termux.api.apis.SAFAPI;
 import com.termux.api.apis.SensorAPI;
+import com.termux.api.apis.SettingAPI;
 import com.termux.api.apis.ShareAPI;
 import com.termux.api.apis.SmsInboxAPI;
 import com.termux.api.apis.SmsSendAPI;
@@ -98,6 +99,7 @@ public class TermuxApiReceiver extends BroadcastReceiver {
 
                     // user must enable WRITE_SETTINGS permission this special way
                     Intent settingsIntent = new Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS);
+                    settingsIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                     context.startActivity(settingsIntent);
                     return;
                 }
@@ -205,6 +207,9 @@ public class TermuxApiReceiver extends BroadcastReceiver {
                 break;
             case "Sensor":
                 SensorAPI.onReceive(context, intent);
+                break;
+            case "Setting":
+                SettingAPI.onReceive(this, context, intent);
                 break;
             case "Share":
                 ShareAPI.onReceive(this, context, intent);

@@ -118,16 +118,25 @@ public class FingerprintAPI {
     protected static boolean validateFingerprintSensor(Context context, FingerprintManagerCompat fingerprintManagerCompat) {
         boolean result = true;
 
-        if (!fingerprintManagerCompat.isHardwareDetected()) {
-            Toast.makeText(context, "No fingerprint scanner found!", Toast.LENGTH_SHORT).show();
-            appendFingerprintError(ERROR_NO_HARDWARE);
-            result = false;
-        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            // On Android 11+, BiometricPrompt with DEVICE_CREDENTIAL fallback can work
+            // even without biometric hardware, so don't reject here
+            if (!fingerprintManagerCompat.isHardwareDetected()) {
+                Logger.logDebug(LOG_TAG, "No biometric hardware detected, will try DEVICE_CREDENTIAL fallback");
+                // Don't reject - let BiometricPrompt handle it with credential fallback
+            }
+        } else {
+            if (!fingerprintManagerCompat.isHardwareDetected()) {
+                Toast.makeText(context, "No fingerprint scanner found!", Toast.LENGTH_SHORT).show();
+                appendFingerprintError(ERROR_NO_HARDWARE);
+                result = false;
+            }
 
-        if (!fingerprintManagerCompat.hasEnrolledFingerprints()) {
-            Toast.makeText(context, "No fingerprints enrolled", Toast.LENGTH_SHORT).show();
-            appendFingerprintError(ERROR_NO_ENROLLED_FINGERPRINTS);
-            result = false;
+            if (!fingerprintManagerCompat.hasEnrolledFingerprints()) {
+                Toast.makeText(context, "No fingerprints enrolled", Toast.LENGTH_SHORT).show();
+                appendFingerprintError(ERROR_NO_ENROLLED_FINGERPRINTS);
+                result = false;
+            }
         }
         return result;
     }
@@ -188,7 +197,7 @@ public class FingerprintAPI {
                     addFailedAttempt();
                 }
             });
-
+            // listen to fingerprint sensor
             BiometricPrompt.PromptInfo.Builder builder = new BiometricPrompt.PromptInfo.Builder();
             builder.setTitle(intent.hasExtra("title") ? intent.getStringExtra("title") : "Authenticate");
             builder.setNegativeButtonText(intent.hasExtra("cancel") ? intent.getStringExtra("cancel") : "Cancel");
@@ -197,6 +206,15 @@ public class FingerprintAPI {
             }
             if (intent.hasExtra("subtitle")) {
                 builder.setSubtitle(intent.getStringExtra("subtitle"));
+            }
+
+            // On Android 11+ (API 30+), allow fallback to device credentials (PIN/pattern/password)
+            // for devices without biometric hardware
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                builder.setAllowedAuthenticators(
+                    androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_WEAK |
+                    androidx.biometric.BiometricManager.Authenticators.DEVICE_CREDENTIAL
+                );
             }
 
             // listen to fingerprint sensor

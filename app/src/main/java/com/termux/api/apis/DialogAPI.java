@@ -580,7 +580,14 @@ public class DialogAPI {
 
             @Override
             TimePicker createWidgetView(AppCompatActivity activity) {
-                return new TimePicker(activity);
+                TimePicker timePicker = new TimePicker(activity);
+                // Default to system 24h setting, can be overridden with "24h" extra
+                boolean is24Hour = android.text.format.DateFormat.is24HourFormat(activity);
+                if (activity.getIntent().hasExtra("24h")) {
+                    is24Hour = activity.getIntent().getBooleanExtra("24h", is24Hour);
+                }
+                timePicker.setIs24HourView(is24Hour);
+                return timePicker;
             }
         }
 

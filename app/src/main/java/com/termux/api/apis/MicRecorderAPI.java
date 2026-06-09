@@ -126,7 +126,14 @@ public class MicRecorderAPI {
         public void onDestroy() {
             Logger.logDebug(LOG_TAG, "onDestroy");
 
-            cleanupMediaRecorder();
+            // Move MediaRecorder cleanup to a background thread to avoid blocking UI
+            if (isRecording) {
+                new Thread(() -> {
+                    cleanupMediaRecorder();
+                }).start();
+            } else {
+                cleanupMediaRecorder();
+            }
         }
 
         /**
@@ -254,17 +261,18 @@ public class MicRecorderAPI {
                 int srate = intent.getIntExtra("srate", 0);
                 int channels = intent.getIntExtra("channels", 0);
 
-                file = new File(filename);
+                File newFile = new File(filename);
 
-                Logger.logInfo(LOG_TAG, "MediaRecording file is: " + file.getAbsolutePath());
+                Logger.logInfo(LOG_TAG, "MediaRecording file is: " + newFile.getAbsolutePath());
 
-                if (file.exists()) {
-                    result.error = String.format("File: %s already exists! Please specify a different filename", file.getName());
+                if (newFile.exists()) {
+                    result.error = String.format("File: %s already exists! Please specify a different filename", newFile.getName());
                 } else {
                     if (isRecording) {
                         result.error = "Recording already in progress!";
                     } else {
                         try {
+                            file = newFile;
                             mediaRecorder.setAudioSource(source);
                             mediaRecorder.setOutputFormat(format);
                             mediaRecorder.setAudioEncoder(encoder);
