@@ -1,6 +1,6 @@
 # Termux:API
 
-[![Build status](https://github.com/termux/termux-api/workflows/Build/badge.svg)](https://github.com/termux/termux-api/actions)
+[![Build debug APK](https://github.com/billybox1926-jpg/termux-api/actions/workflows/android-debug.yml/badge.svg?branch=workbench-api-updates)](https://github.com/billybox1926-jpg/termux-api/actions/workflows/android-debug.yml?query=branch%3Aworkbench-api-updates)
 [![License: GPLv3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
 Termux:API is the Android app side of the Termux API stack. It exposes selected Android system features to Termux commands, shell scripts, and programs.
