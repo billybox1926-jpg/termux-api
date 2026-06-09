@@ -106,6 +106,12 @@
             android:excludeFromRecents="true"
             android:exported="false" />
 
+        <activity android:name=".apis.KeyboardAPI$KeyboardActivity"
+            android:theme="@style/TransparentTheme"
+            android:noHistory="true"
+            android:excludeFromRecents="true"
+            android:exported="false" />
+
         <activity android:name=".apis.FingerprintAPI$FingerprintActivity"
             android:theme="@style/TransparentTheme"
             android:noHistory="true"
@@ -168,6 +174,7 @@
             android:name="${TERMUX_PACKAGE_NAME}.shared.activities.ReportActivity$ReportActivityBroadcastReceiver"
             android:exported="false"
             tools:ignore="MissingClass" />
+
 
 
 
