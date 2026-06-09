@@ -65,11 +65,14 @@ public class LocationAPI {
                             break;
                         }
                         final long timeoutMs = intent.getLongExtra("timeout", 60000);
+                        final LocationManager finalManager = manager;
+                        final String finalProvider = provider;
+                        final JsonWriter finalOut = out;
                         final Looper[] looper = new Looper[1];
                         Thread looperThread = new Thread(() -> {
                             Looper.prepare();
                             looper[0] = Looper.myLooper();
-                            manager.requestSingleUpdate(provider, new LocationListener() {
+                            finalManager.requestSingleUpdate(finalProvider, new LocationListener() {
                                 @Override
                                 public void onStatusChanged(String changedProvider, int status, Bundle extras) {}
 
@@ -82,7 +85,7 @@ public class LocationAPI {
                                 @Override
                                 public void onLocationChanged(Location location) {
                                     try {
-                                        locationToJson(location, out);
+                                        locationToJson(location, finalOut);
                                     } catch (IOException e) {
                                         Logger.logStackTraceWithMessage(LOG_TAG, "Writing json", e);
                                     } finally {
