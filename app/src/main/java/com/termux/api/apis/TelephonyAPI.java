@@ -264,6 +264,18 @@ public class TelephonyAPI {
                     out.name("device_id").value(device_id);
                     out.name("device_software_version").value(manager.getDeviceSoftwareVersion());
                     out.name("phone_count").value(manager.getPhoneCount());
+
+                    // Fix for issue #794: include Android device name from Settings
+                    String deviceName = Settings.Global.getString(context.getContentResolver(), Settings.Global.DEVICE_NAME);
+                    if (deviceName != null && !deviceName.isEmpty()) {
+                        out.name("device_name").value(deviceName);
+                    }
+                    // Also include Android ID as a stable identifier
+                    String androidId = Settings.Secure.getString(context.getContentResolver(), Settings.Secure.ANDROID_ID);
+                    if (androidId != null) {
+                        out.name("android_id").value(androidId);
+                    }
+
                     String phoneTypeString;
                     switch (phoneType) {
                         case TelephonyManager.PHONE_TYPE_CDMA:
