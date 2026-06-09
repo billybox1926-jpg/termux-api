@@ -1076,6 +1076,9 @@ public class DialogAPI {
                 // OK clicked
                 if (button == Dialog.BUTTON_POSITIVE) {
                     inputResult.text = getResult();
+                } else {
+                    // CANCEL or outside tap - reset index to avoid stale value (#541)
+                    InputResult.index = -1;
                 }
                 return inputResult;
             }

@@ -14,13 +14,27 @@ import com.termux.shared.logger.Logger;
 
 public class TorchAPI {
     private static Camera legacyCamera;
+    private static boolean torchOn = false;
 
     private static final String LOG_TAG = "TorchAPI";
 
     public static void onReceive(TermuxApiReceiver apiReceiver, final Context context, final Intent intent) {
         Logger.logDebug(LOG_TAG, "onReceive");
 
-        boolean enabled = intent.getBooleanExtra("enabled", false);
+        String mode = intent.getStringExtra("mode");
+        boolean enabled;
+
+        if ("toggle".equals(mode)) {
+            // Toggle: invert the current tracked state
+            enabled = !torchOn;
+        } else if ("on".equals(mode)) {
+            enabled = true;
+        } else if ("off".equals(mode)) {
+            enabled = false;
+        } else {
+            // Legacy boolean extra
+            enabled = intent.getBooleanExtra("enabled", false);
+        }
 
         toggleTorch(context, enabled);
         ResultReturner.noteDone(apiReceiver, intent);
@@ -33,6 +47,7 @@ public class TorchAPI {
 
             if (torchCameraId != null) {
                 cameraManager.setTorchMode(torchCameraId, enabled);
+                torchOn = enabled;
             } else {
                 Toast.makeText(context, "Torch unavailable on your device", Toast.LENGTH_LONG).show();
             }

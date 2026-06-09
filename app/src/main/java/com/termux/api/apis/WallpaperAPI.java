@@ -142,6 +142,8 @@ public class WallpaperAPI {
                 out.flush();
                 out.close();
             });
+            // Stop the service after result is returned (#877)
+            stopSelf();
         }
 
         @Override

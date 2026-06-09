@@ -34,7 +34,15 @@ public class NotificationListAPI {
 
     static void listNotifications(Context context, JsonWriter out) throws Exception {
         NotificationService notificationService = NotificationService.get();
+        if (notificationService == null) {
+            out.beginObject().name("error").value("Notification listener service is not connected. Please enable notification access for Termux:API in Android settings.").endObject();
+            return;
+        }
         StatusBarNotification[] notifications = notificationService.getActiveNotifications();
+        if (notifications == null) {
+            out.beginArray().endArray();
+            return;
+        }
 
         out.beginArray();
         for (StatusBarNotification n : notifications) {

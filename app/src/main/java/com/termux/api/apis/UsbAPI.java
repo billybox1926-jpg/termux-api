@@ -99,6 +99,11 @@ public class UsbAPI {
                         ResultReturner.returnData(this, intent, out -> out.append("Invalid action: \"" + action + "\"\n"));
                 }
             }
+            // Stop the service after the action completes (#877)
+            // Note: permission and open actions run asynchronously, so they stop themselves
+            if (action == null || "list".equals(action)) {
+                stopSelf();
+            }
 
             return Service.START_NOT_STICKY;
         }
@@ -156,6 +161,7 @@ public class UsbAPI {
                         out.append("Permission request timeout.\n" );
                     }
                 });
+                stopSelf();
             });
         }
 
@@ -191,6 +197,7 @@ public class UsbAPI {
                         }
                     }
                 });
+                stopSelf();
             });
         }
 
@@ -307,9 +314,10 @@ public class UsbAPI {
                 // Request permission and wait.
                 usbManager.requestPermission(device, permissionIntent);
 
+                long permissionTimeout = intent.getLongExtra("permission_timeout", 30L);
                 try {
-                    if (!latch.await(30L, TimeUnit.SECONDS)) {
-                        Logger.logVerbose(LOG_TAG, "Permission request time out for device \"" + device.getDeviceName() + "\" after 30s");
+                    if (!latch.await(permissionTimeout, TimeUnit.SECONDS)) {
+                        Logger.logVerbose(LOG_TAG, "Permission request time out for device \"" + device.getDeviceName() + "\" after " + permissionTimeout + "s");
                         return -1;
                     }
                 } catch (InterruptedException e) {

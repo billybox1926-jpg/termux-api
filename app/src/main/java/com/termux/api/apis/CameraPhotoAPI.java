@@ -98,6 +98,7 @@ public class CameraPhotoAPI {
                 @Override
                 public void onDisconnected(CameraDevice camera) {
                     Logger.logInfo(LOG_TAG, "onDisconnected() from camera");
+                    closeCamera(camera, looper);
                 }
 
                 @Override
