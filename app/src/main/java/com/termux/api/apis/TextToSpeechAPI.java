@@ -192,6 +192,20 @@ public class TextToSpeechAPI {
                             }
                         }
 
+                        // If client disconnected before all text was sent, stop TTS immediately
+                        if (ttsDoneUtterancesCount.get() != submittedUtterances) {
+                            Logger.logDebug(LOG_TAG, "Client disconnected with " + (submittedUtterances - ttsDoneUtterancesCount.get()) + " utterances remaining, stopping TTS");
+                            mTts.stop();
+                            // Mark remaining as done to unblock the wait
+                            synchronized (ttsDoneUtterancesCount) {
+                                int remaining = submittedUtterances - ttsDoneUtterancesCount.get();
+                                for (int i = 0; i < remaining; i++) {
+                                    ttsDoneUtterancesCount.incrementAndGet();
+                                }
+                                ttsDoneUtterancesCount.notifyAll();
+                            }
+                        }
+
                         synchronized (ttsDoneUtterancesCount) {
                             while (ttsDoneUtterancesCount.get() != submittedUtterances) {
                                 ttsDoneUtterancesCount.wait();

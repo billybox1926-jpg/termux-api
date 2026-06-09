@@ -99,6 +99,11 @@ public class UsbAPI {
                         ResultReturner.returnData(this, intent, out -> out.append("Invalid action: \"" + action + "\"\n"));
                 }
             }
+            // Stop the service after the action completes (#877)
+            // Note: permission and open actions run asynchronously, so they stop themselves
+            if (action == null || "list".equals(action)) {
+                stopSelf();
+            }
 
             return Service.START_NOT_STICKY;
         }
@@ -156,6 +161,7 @@ public class UsbAPI {
                         out.append("Permission request timeout.\n" );
                     }
                 });
+                stopSelf();
             });
         }
 
@@ -191,6 +197,7 @@ public class UsbAPI {
                         }
                     }
                 });
+                stopSelf();
             });
         }
 
