@@ -51,8 +51,9 @@ public class CameraVideoAPI {
 
         String action = intent.getStringExtra("action");
         if (action == null) action = "start";
+        final String finalAction = action;
 
-        switch (action) {
+        switch (finalAction) {
             case "start":
                 startRecording(apiReceiver, context, intent);
                 break;
@@ -62,7 +63,7 @@ public class CameraVideoAPI {
                 break;
             default:
                 ResultReturner.returnData(apiReceiver, intent, out ->
-                        out.println("Error: Unknown action '" + action + "'. Use 'start' or 'quit'."));
+                        out.println("Error: Unknown action '" + finalAction + "'. Use 'start' or 'quit'."));
         }
     }
 
@@ -92,9 +93,11 @@ public class CameraVideoAPI {
 
             String cameraId = intent.getStringExtra("camera");
             if (cameraId == null || cameraId.isEmpty()) cameraId = "0";
+            final String finalCameraId = cameraId;
 
             int maxDuration = intent.getIntExtra("duration", 60);
             if (maxDuration <= 0) maxDuration = 60;
+            final int finalMaxDuration = maxDuration;
 
             sOutputFile = new File(videoFilePath);
 
@@ -104,8 +107,8 @@ public class CameraVideoAPI {
                     Looper.prepare();
                     sLooper = Looper.myLooper();
 
-                    prepareMediaRecorder(context, sOutputFile, cameraId, intent);
-                    openCameraAndStartRecording(context, cameraId, out, maxDuration);
+                    prepareMediaRecorder(context, sOutputFile, finalCameraId, intent);
+                    openCameraAndStartRecording(context, finalCameraId, out, finalMaxDuration);
 
                     Looper.loop();
                 } catch (Exception e) {
