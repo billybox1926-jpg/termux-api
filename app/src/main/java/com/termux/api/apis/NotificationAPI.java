@@ -47,8 +47,25 @@ public class NotificationAPI {
     /**
      * Show a notification. Driven by the termux-show-notification script.
      */
+    private static int ledColorFromIntent(Intent intent) {
+        String lightsArgbExtra = intent.getStringExtra("led-color");
+        int ledColor = 0;
+
+        if (lightsArgbExtra != null) {
+            try {
+                ledColor = Integer.parseInt(lightsArgbExtra, 16) | 0xff000000;
+            } catch (NumberFormatException e) {
+                Logger.logError(LOG_TAG, "Invalid LED color format! Ignoring!");
+            }
+        }
+
+        return ledColor;
+    }
+
     public static void onReceiveShowNotification(TermuxApiReceiver apiReceiver, final Context context, final Intent intent) {
         Logger.logDebug(LOG_TAG, "onReceiveShowNotification");
+
+        final int channelLedColor = ledColorFromIntent(intent);
 
         Pair<NotificationCompat.Builder, String> pair = buildNotification(context, intent);
         NotificationCompat.Builder notification = pair.first;
@@ -89,9 +106,9 @@ public class NotificationAPI {
                         channel.setSound(null, null);
                     }
                     // Enable LED on the channel if led-color is set (#218)
-                    if (ledColor != 0) {
+                    if (channelLedColor != 0) {
                         channel.enableLights(true);
-                        channel.setLightColor(ledColor);
+                        channel.setLightColor(channelLedColor);
                     }
                     manager.createNotificationChannel(channel);
                 }
@@ -181,17 +198,7 @@ public class NotificationAPI {
 
         String title = intent.getStringExtra("title");
 
-        String lightsArgbExtra = intent.getStringExtra("led-color");
-
-        int ledColor = 0;
-
-        if (lightsArgbExtra != null) {
-            try {
-                ledColor = Integer.parseInt(lightsArgbExtra, 16) | 0xff000000;
-            } catch (NumberFormatException e) {
-                Logger.logError(LOG_TAG, "Invalid LED color format! Ignoring!");
-            }
-        }
+        int ledColor = ledColorFromIntent(intent);
 
         int ledOnMs = intent.getIntExtra("led-on", 800);
         int ledOffMs = intent.getIntExtra("led-off", 800);
