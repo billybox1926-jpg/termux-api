@@ -1,14 +1,12 @@
-name: Android Debug Build
+name: Build Termux API App
 
 on:
   push:
-    branches:
-      - master
-      - workbench-api-updates
+    branches: [ master, workbench-api-updates ]
   pull_request:
-    branches:
-      - master
-      - workbench-api-updates
+    branches: [ master, workbench-api-updates ]
+  schedule:
+    - cron: "15 0 1 */2 *"
   workflow_dispatch:
 
 permissions:
@@ -20,24 +18,91 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Check out repository
+      - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Set up JDK 17
+      - name: Set up JDK
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: "17"
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
 
       - name: Make Gradle wrapper executable
         run: chmod +x ./gradlew
 
-      - name: Build debug APK
-        run: ./gradlew clean :app:assembleDebug --no-daemon --console=plain
+      - name: Build Debug APK
+        shell: bash
+        run: |
+          set -euo pipefail
 
-      - name: Upload debug APK
+          echo "Setting build variables..."
+
+          # Use PR head SHA instead of merge commit.
+          if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
+            GITHUB_SHA="${{ github.event.pull_request.head.sha }}"
+          fi
+
+          CURRENT_VERSION_NAME=$(grep -m 1 -E 'versionName\s+"([^"]+)"' ./app/build.gradle \
+            | sed -E 's/.*versionName\s+"([^"]+)".*/\1/')
+
+          if [ -z "$CURRENT_VERSION_NAME" ]; then
+            echo "❌ Could not extract versionName from app/build.gradle"
+            exit 1
+          fi
+
+          SHORT_SHA="${GITHUB_SHA:0:7}"
+          RELEASE_VERSION_NAME="v${CURRENT_VERSION_NAME}+${SHORT_SHA}"
+
+          if ! printf "%s" "${RELEASE_VERSION_NAME#v}" | grep -qP '^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$'; then
+            echo "❌ Invalid SemVer: ${RELEASE_VERSION_NAME#v}"
+            echo "Current versionName: $CURRENT_VERSION_NAME"
+            exit 1
+          fi
+
+          APK_DIR_PATH="./app/build/outputs/apk/debug"
+          APK_VERSION_TAG="${RELEASE_VERSION_NAME#v}.github.debug"
+          APK_BASENAME_PREFIX="termux-api-app_${APK_VERSION_TAG}"
+
+          echo "APK_DIR_PATH=$APK_DIR_PATH" >> "$GITHUB_ENV"
+          echo "APK_VERSION_TAG=$APK_VERSION_TAG" >> "$GITHUB_ENV"
+          echo "APK_BASENAME_PREFIX=$APK_BASENAME_PREFIX" >> "$GITHUB_ENV"
+
+          echo "Building APK for version: $RELEASE_VERSION_NAME"
+
+          export TERMUX_API_APP__BUILD__APP_VERSION_NAME="${RELEASE_VERSION_NAME#v}"
+          export TERMUX_API_APP__BUILD__APK_VERSION_TAG="$APK_VERSION_TAG"
+
+          ./gradlew assembleDebug --no-daemon --console=plain
+
+          APK_PATH="${APK_DIR_PATH}/${APK_BASENAME_PREFIX}.apk"
+          if [ ! -f "$APK_PATH" ]; then
+            echo "❌ APK not found at expected path: $APK_PATH"
+            echo "Files in output directory:"
+            ls -la "$APK_DIR_PATH" || true
+            exit 1
+          fi
+
+          echo "✅ APK built successfully: $APK_PATH"
+
+          (cd "$APK_DIR_PATH" && sha256sum "${APK_BASENAME_PREFIX}.apk" > checksums-sha256.txt)
+
+          echo "checksums-sha256.txt:"
+          echo '```'
+          cat "$APK_DIR_PATH/checksums-sha256.txt"
+          echo '```'
+
+      - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: termux-api-debug-apk
-          path: app/build/outputs/apk/debug/*.apk
+          path: |
+            ${{ env.APK_DIR_PATH }}/${{ env.APK_BASENAME_PREFIX }}.apk
+            ${{ env.APK_DIR_PATH }}/checksums-sha256.txt
+            ${{ env.APK_DIR_PATH }}/output-metadata.json
           if-no-files-found: error
+          retention-days: 30
