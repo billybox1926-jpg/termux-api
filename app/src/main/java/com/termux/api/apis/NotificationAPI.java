@@ -105,9 +105,15 @@ public class NotificationAPI {
                         channel.setSound(null, null);
                     }
                     // Enable LED on the channel if led-color is set (#218)
-                    if (ledColor != 0) {
-                        channel.enableLights(true);
-                        channel.setLightColor(ledColor);
+                    String ledColorStr = intent.getStringExtra("led-color");
+                    if (ledColorStr != null) {
+                        try {
+                            int channelLedColor = Integer.parseInt(ledColorStr, 16) | 0xff000000;
+                            channel.enableLights(true);
+                            channel.setLightColor(channelLedColor);
+                        } catch (NumberFormatException e) {
+                            Logger.logError(LOG_TAG, "Invalid LED color format: " + ledColorStr);
+                        }
                     }
                     manager.createNotificationChannel(channel);
                 }

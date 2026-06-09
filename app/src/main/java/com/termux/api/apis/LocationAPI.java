@@ -135,7 +135,7 @@ public class LocationAPI {
                                 }
                             }
                         }, null);
-                        final Looper looper = Looper.myLooper();
+                        final Looper updatesLooper = Looper.myLooper();
                         new Thread() {
                             @Override
                             public void run() {
@@ -144,7 +144,7 @@ public class LocationAPI {
                                 } catch (InterruptedException e) {
                                     Logger.logStackTraceWithMessage(LOG_TAG, "INTER", e);
                                 }
-                                looper.quit();
+                                updatesLooper.quit();
                             }
                         }.start();
                         Looper.loop();
