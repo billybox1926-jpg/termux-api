@@ -50,8 +50,16 @@ public class BatteryStatusAPI {
         });
         try {
             Intent batteryStatus = future.get(5, TimeUnit.SECONDS);
-            // Safe to write result now with the (possibly empty) battery status
-            writeBatteryStatus(apiReceiver, appContext, intent, batteryStatus);
+            // Write result, handling possible Exception from writeBatteryStatus
+            try {
+                writeBatteryStatus(apiReceiver, appContext, intent, batteryStatus);
+            } catch (Exception e) {
+                Logger.logStackTraceWithMessage(LOG_TAG, "Battery status write error", e);
+                ResultReturner.returnData(apiReceiver, intent, out -> {
+                    out.println("Error: " + e.getMessage());
+                });
+                return;
+            }
         } catch (TimeoutException e) {
             Logger.logError(LOG_TAG, "Battery status timed out after 5 seconds");
             future.cancel(true);
@@ -71,7 +79,7 @@ public class BatteryStatusAPI {
     /**
      * Write battery status JSON to output stream, using the pre-fetched battery Intent
      */
-    static void writeBatteryStatus(TermuxApiReceiver apiReceiver, final Context context, Intent intent, Intent batteryStatus) throws Exception {
+    static void writeBatteryStatus(TermuxApiReceiver apiReceiver, final Context context, Intent intent, Intent batteryStatus) {
         sTargetSdkVersion = context.getApplicationContext().getApplicationInfo().targetSdkVersion;
 
         ResultReturner.returnData(apiReceiver, intent, new ResultJsonWriter() {

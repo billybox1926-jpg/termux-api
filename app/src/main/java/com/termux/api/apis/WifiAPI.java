@@ -165,7 +165,11 @@ public class WifiAPI {
                         manager.setWifiEnabled(state);
                     } catch (SecurityException e) {
                         Logger.logStackTraceWithMessage(LOG_TAG, "Failed to toggle WiFi", e);
-                        out.beginObject().name("API_ERROR").value("Failed to toggle WiFi: " + e.getMessage()).endObject();
+                        try {
+                            out.beginObject().name("API_ERROR").value("Failed to toggle WiFi: " + e.getMessage()).endObject();
+                        } catch (Exception jsonException) {
+                            throw new RuntimeException(jsonException);
+                        }
                     }
                 }
             }
