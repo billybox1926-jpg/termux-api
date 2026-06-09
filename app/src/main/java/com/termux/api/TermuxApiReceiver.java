@@ -21,7 +21,6 @@ import com.termux.api.apis.DownloadAPI;
 import com.termux.api.apis.FingerprintAPI;
 import com.termux.api.apis.InfraredAPI;
 import com.termux.api.apis.JobSchedulerAPI;
-import com.termux.api.apis.KeyboardAPI;
 import com.termux.api.apis.KeystoreAPI;
 import com.termux.api.apis.LocationAPI;
 import com.termux.api.apis.MediaPlayerAPI;
@@ -147,15 +146,6 @@ public class TermuxApiReceiver extends BroadcastReceiver {
                 break;
             case "JobScheduler":
                 JobSchedulerAPI.onReceive(this, context, intent);
-                break;
-            case "KeyboardHide":
-                KeyboardAPI.onReceiveHide(context, intent);
-                break;
-            case "KeyboardShow":
-                KeyboardAPI.onReceiveShow(context, intent);
-                break;
-            case "KeyboardVisible":
-                KeyboardAPI.onReceiveVisible(context, intent);
                 break;
             case "Keystore":
                 KeystoreAPI.onReceive(this, intent);

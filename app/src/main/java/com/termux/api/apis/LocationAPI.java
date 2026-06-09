@@ -50,14 +50,12 @@ public class LocationAPI {
                     return;
                 }
 
-                final String locationProvider = provider;
-
                 String request = intent.getStringExtra("request");
                 if (request == null)
                     request = REQUEST_ONCE;
                 switch (request) {
                     case REQUEST_LAST_KNOWN:
-                        Location lastKnownLocation = manager.getLastKnownLocation(locationProvider);
+                        Location lastKnownLocation = manager.getLastKnownLocation(provider);
                         locationToJson(lastKnownLocation, out);
                         break;
                     case REQUEST_ONCE:
@@ -67,11 +65,14 @@ public class LocationAPI {
                             break;
                         }
                         final long timeoutMs = intent.getLongExtra("timeout", 60000);
+                        final LocationManager finalManager = manager;
+                        final String finalProvider = provider;
+                        final JsonWriter finalOut = out;
                         final Looper[] looper = new Looper[1];
                         Thread looperThread = new Thread(() -> {
                             Looper.prepare();
                             looper[0] = Looper.myLooper();
-                            manager.requestSingleUpdate(locationProvider, new LocationListener() {
+                            finalManager.requestSingleUpdate(finalProvider, new LocationListener() {
                                 @Override
                                 public void onStatusChanged(String changedProvider, int status, Bundle extras) {}
 
@@ -84,7 +85,7 @@ public class LocationAPI {
                                 @Override
                                 public void onLocationChanged(Location location) {
                                     try {
-                                        locationToJson(location, out);
+                                        locationToJson(location, finalOut);
                                     } catch (IOException e) {
                                         Logger.logStackTraceWithMessage(LOG_TAG, "Writing json", e);
                                     } finally {
@@ -110,7 +111,7 @@ public class LocationAPI {
                         break;
                     case REQUEST_UPDATES:
                         Looper.prepare();
-                        manager.requestLocationUpdates(locationProvider, 5000, 50.f, new LocationListener() {
+                        manager.requestLocationUpdates(provider, 5000, 50.f, new LocationListener() {
 
                             @Override
                             public void onStatusChanged(String changedProvider, int status, Bundle extras) {

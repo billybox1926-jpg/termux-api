@@ -6,6 +6,7 @@ import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
@@ -32,6 +33,7 @@ import com.termux.shared.termux.TermuxConstants.TERMUX_APP.TERMUX_SERVICE;
 
 import java.io.File;
 import java.io.PrintWriter;
+import java.lang.reflect.Field;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -47,25 +49,19 @@ public class NotificationAPI {
     /**
      * Show a notification. Driven by the termux-show-notification script.
      */
-    private static int ledColorFromIntent(Intent intent) {
-        String lightsArgbExtra = intent.getStringExtra("led-color");
-        int ledColor = 0;
-
-        if (lightsArgbExtra != null) {
-            try {
-                ledColor = Integer.parseInt(lightsArgbExtra, 16) | 0xff000000;
-            } catch (NumberFormatException e) {
-                Logger.logError(LOG_TAG, "Invalid LED color format! Ignoring!");
-            }
-        }
-
-        return ledColor;
-    }
-
     public static void onReceiveShowNotification(TermuxApiReceiver apiReceiver, final Context context, final Intent intent) {
         Logger.logDebug(LOG_TAG, "onReceiveShowNotification");
 
-        final int channelLedColor = ledColorFromIntent(intent);
+        // Request POST_NOTIFICATIONS permission on Android 13+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (context.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                Logger.logError(LOG_TAG, "POST_NOTIFICATIONS permission not granted");
+                ResultReturner.returnData(apiReceiver, intent, out -> {
+                    out.println("Error: POST_NOTIFICATIONS permission not granted. Please grant notification permission in Android settings.");
+                });
+                return;
+            }
+        }
 
         Pair<NotificationCompat.Builder, String> pair = buildNotification(context, intent);
         NotificationCompat.Builder notification = pair.first;
@@ -90,7 +86,10 @@ public class NotificationAPI {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                     NotificationChannel channel = new NotificationChannel(CHANNEL_ID,
                             CHANNEL_TITLE, priorityFromIntent(intent));
+                    // Enable vibration on the channel - required for Android 8+ since
+                    // channel settings override builder settings
                     channel.enableVibration(true);
+                    // Copy the vibrate pattern from the intent if set
                     long[] channelVibrate = intent.getLongArrayExtra("vibrate");
                     if (channelVibrate != null) {
                         channel.setVibrationPattern(channelVibrate);
@@ -106,9 +105,15 @@ public class NotificationAPI {
                         channel.setSound(null, null);
                     }
                     // Enable LED on the channel if led-color is set (#218)
-                    if (channelLedColor != 0) {
-                        channel.enableLights(true);
-                        channel.setLightColor(channelLedColor);
+                    String ledColorStr = intent.getStringExtra("led-color");
+                    if (ledColorStr != null) {
+                        try {
+                            int channelLedColor = Integer.parseInt(ledColorStr, 16) | 0xff000000;
+                            channel.enableLights(true);
+                            channel.setLightColor(channelLedColor);
+                        } catch (NumberFormatException e) {
+                            Logger.logError(LOG_TAG, "Invalid LED color format: " + ledColorStr);
+                        }
                     }
                     manager.createNotificationChannel(channel);
                 }
@@ -126,25 +131,25 @@ public class NotificationAPI {
                 NotificationManager m = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
                 String channelId = intent.getStringExtra("id");
                 String channelName = intent.getStringExtra("name");
-
+                
                 if (channelId == null || channelId.equals("")) {
                     ResultReturner.returnData(apiReceiver, intent, out -> out.println("Channel id not specified."));
                     return;
                 }
-
-                if (intent.getBooleanExtra("delete", false)) {
+                
+                if (intent.getBooleanExtra("delete",false)) {
                     m.deleteNotificationChannel(channelId);
-                    ResultReturner.returnData(apiReceiver, intent, out -> out.println("Deleted channel with id \"" + channelId + "\"."));
+                    ResultReturner.returnData(apiReceiver, intent, out -> out.println("Deleted channel with id \""+channelId+"\"."));
                     return;
                 }
-
+                
                 if (channelName == null || channelName.equals("")) {
                     ResultReturner.returnData(apiReceiver, intent, out -> out.println("Cannot create a channel without a name."));
                 }
-
+                
                 NotificationChannel c = new NotificationChannel(channelId, channelName, priorityFromIntent(intent));
                 m.createNotificationChannel(c);
-                ResultReturner.returnData(apiReceiver, intent, out -> out.println("Created channel with id \"" + channelId + "\" and name \"" + channelName + "\"."));
+                ResultReturner.returnData(apiReceiver, intent, out -> out.println("Created channel with id \""+channelId+"\" and name \""+channelName+"\"."));
             } catch (Exception e) {
                 e.printStackTrace();
                 ResultReturner.returnData(apiReceiver, intent, out -> out.println("Could not create/delete channel."));
@@ -153,7 +158,7 @@ public class NotificationAPI {
             ResultReturner.returnData(apiReceiver, intent, out -> out.println("Notification channels are only available on Android 8.0 and higher, use the options for termux-notification instead."));
         }
     }
-
+    
     private static int priorityFromIntent(Intent intent) {
         String priorityExtra = intent.getStringExtra("priority");
         if (priorityExtra == null) priorityExtra = "default";
@@ -198,7 +203,17 @@ public class NotificationAPI {
 
         String title = intent.getStringExtra("title");
 
-        int ledColor = ledColorFromIntent(intent);
+        String lightsArgbExtra = intent.getStringExtra("led-color");
+
+        int ledColor = 0;
+
+        if (lightsArgbExtra != null) {
+            try {
+                ledColor = Integer.parseInt(lightsArgbExtra, 16) | 0xff000000;
+            } catch (NumberFormatException e) {
+                Logger.logError(LOG_TAG, "Invalid LED color format! Ignoring!");
+            }
+        }
 
         int ledOnMs = intent.getIntExtra("led-on", 800);
         int ledOffMs = intent.getIntExtra("led-off", 800);
@@ -213,12 +228,12 @@ public class NotificationAPI {
         final String notificationId = getNotificationId(intent);
 
         String groupKey = intent.getStringExtra("group");
-
+        
         String channel = intent.getStringExtra("channel");
         if (channel == null) {
             channel = CHANNEL_ID;
         }
-
+        
         final NotificationCompat.Builder notification = new NotificationCompat.Builder(context,
                 channel);
         notification.setSmallIcon(R.drawable.ic_event_note_black_24dp);
@@ -280,78 +295,48 @@ public class NotificationAPI {
             String mediaPlay = intent.getStringExtra("media-play");
             String mediaNext = intent.getStringExtra("media-next");
 
-            int mediaActionCount = 0;
-            int previousActionIndex = -1;
-            int pauseActionIndex = -1;
-            int playActionIndex = -1;
-            int nextActionIndex = -1;
+            boolean hasAnyButton = mediaPrevious != null || mediaPause != null || mediaPlay != null || mediaNext != null;
 
-            if (mediaPrevious != null) {
-                PendingIntent previousIntent = createMutableAction(context, mediaPrevious, mediaActionCount);
-                previousActionIndex = mediaActionCount++;
-                notification.addAction(new NotificationCompat.Action(android.R.drawable.ic_media_previous, "previous", previousIntent));
-            }
-
-            if (mediaPause != null) {
-                PendingIntent pauseIntent = createMutableAction(context, mediaPause, mediaActionCount);
-                pauseActionIndex = mediaActionCount++;
-                notification.addAction(new NotificationCompat.Action(android.R.drawable.ic_media_pause, "pause", pauseIntent));
-            }
-
-            if (mediaPlay != null) {
-                PendingIntent playIntent = createMutableAction(context, mediaPlay, mediaActionCount);
-                playActionIndex = mediaActionCount++;
-                notification.addAction(new NotificationCompat.Action(android.R.drawable.ic_media_play, "play", playIntent));
-            }
-
-            if (mediaNext != null) {
-                PendingIntent nextIntent = createMutableAction(context, mediaNext, mediaActionCount);
-                nextActionIndex = mediaActionCount++;
-                notification.addAction(new NotificationCompat.Action(android.R.drawable.ic_media_next, "next", nextIntent));
-            }
-
-            if (mediaActionCount > 0) {
+            if (hasAnyButton) {
                 if (smallIconName == null) {
                     notification.setSmallIcon(android.R.drawable.ic_media_play);
                 }
 
-                int[] compactActions = new int[3];
-                int compactActionCount = 0;
+                int actionCount = 0;
+                int compactIndex = 0;
 
-                if (previousActionIndex != -1) {
-                    compactActions[compactActionCount++] = previousActionIndex;
+                if (mediaPrevious != null) {
+                    PendingIntent previousIntent = createMutableAction(context, mediaPrevious, actionCount);
+                    notification.addAction(new NotificationCompat.Action(android.R.drawable.ic_media_previous, "previous", previousIntent));
+                    actionCount++;
                 }
 
-                if (pauseActionIndex != -1) {
-                    compactActions[compactActionCount++] = pauseActionIndex;
-                } else if (playActionIndex != -1) {
-                    compactActions[compactActionCount++] = playActionIndex;
+                if (mediaPause != null) {
+                    PendingIntent pauseIntent = createMutableAction(context, mediaPause, actionCount);
+                    notification.addAction(new NotificationCompat.Action(android.R.drawable.ic_media_pause, "pause", pauseIntent));
+                    actionCount++;
                 }
 
-                if (nextActionIndex != -1 && compactActionCount < compactActions.length) {
-                    compactActions[compactActionCount++] = nextActionIndex;
+                if (mediaPlay != null) {
+                    PendingIntent playIntent = createMutableAction(context, mediaPlay, actionCount);
+                    notification.addAction(new NotificationCompat.Action(android.R.drawable.ic_media_play, "play", playIntent));
+                    actionCount++;
                 }
 
-                if (pauseActionIndex != -1 && playActionIndex != -1 && compactActionCount < compactActions.length) {
-                    compactActions[compactActionCount++] = playActionIndex;
+                if (mediaNext != null) {
+                    PendingIntent nextIntent = createMutableAction(context, mediaNext, actionCount);
+                    notification.addAction(new NotificationCompat.Action(android.R.drawable.ic_media_next, "next", nextIntent));
+                    actionCount++;
                 }
 
-                androidx.media.app.NotificationCompat.MediaStyle mediaStyle =
-                        new androidx.media.app.NotificationCompat.MediaStyle();
-                switch (compactActionCount) {
-                    case 1:
-                        mediaStyle.setShowActionsInCompactView(compactActions[0]);
-                        break;
-                    case 2:
-                        mediaStyle.setShowActionsInCompactView(compactActions[0], compactActions[1]);
-                        break;
-                    case 3:
-                        mediaStyle.setShowActionsInCompactView(compactActions[0], compactActions[1], compactActions[2]);
-                        break;
-                    default:
-                        break;
+                // Show all media actions in compact view
+                int[] compactActions = new int[actionCount];
+                for (int i = 0; i < actionCount; i++) {
+                    compactActions[i] = i;
                 }
-                notification.setStyle(mediaStyle);
+
+                notification.setStyle(new androidx.media.app.NotificationCompat.MediaStyle()
+                        .setShowActionsInCompactView(compactActions));
             }
         }
 
@@ -413,7 +398,7 @@ public class NotificationAPI {
                             buttonText, buttonAction, notificationId);
                     notification.addAction(action);
                 } else {
-                    PendingIntent pi = createAction(context, buttonAction);
+                PendingIntent pi = createAction(context, buttonAction);
                     notification.addAction(new NotificationCompat.Action(android.R.drawable.ic_input_add, buttonText, pi));
                 }
             }

@@ -42,25 +42,10 @@ public class SAFAPI {
             Logger.logDebug(LOG_TAG, "onCreate");
 
             super.onCreate(savedInstanceState);
-            String method = getIntent().getStringExtra("safmethod");
-            Intent i;
-            if ("pickFile".equals(method)) {
-                String mime = getIntent().getStringExtra("mimetype");
-                if (mime == null) {
-                    mime = "*/*";
-                }
-                i = new Intent(Intent.ACTION_OPEN_DOCUMENT);
-                i.addCategory(Intent.CATEGORY_OPENABLE);
-                i.setType(mime);
-                i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION |
-                        Intent.FLAG_GRANT_WRITE_URI_PERMISSION |
-                        Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
-            } else {
-                i = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
-            }
+            Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
             startActivityForResult(i, 0);
         }
-
+        
         @Override
         protected void onDestroy() {
             Logger.logDebug(LOG_TAG, "onDestroy");
@@ -68,11 +53,15 @@ public class SAFAPI {
             super.onDestroy();
             finishAndRemoveTask();
             if (! resultReturned) {
-                ResultReturner.returnData(this, getIntent(), out -> out.write(""));
+                try {
+                    ResultReturner.returnData(this, getIntent(), out -> out.write(""));
+                } catch (Exception e) {
+                    Logger.logStackTraceWithMessage(LOG_TAG, "Failed to return SAF result on destroy", e);
+                }
                 resultReturned = true;
             }
         }
-
+        
         @Override
         protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
             Logger.logVerbose(LOG_TAG, "onActivityResult: requestCode: " + requestCode + ", resultCode: "  + resultCode + ", data: "  + IntentUtils.getIntentString(data));
@@ -81,15 +70,7 @@ public class SAFAPI {
             if (data != null) {
                 Uri uri = data.getData();
                 if (uri != null) {
-                    int takeFlags = data.getFlags() &
-                            (Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
-                    try {
-                        if (takeFlags != 0) {
-                            getContentResolver().takePersistableUriPermission(uri, takeFlags);
-                        }
-                    } catch (SecurityException e) {
-                        Logger.logStackTraceWithMessage(LOG_TAG, "Could not take persistable uri permission for " + uri, e);
-                    }
+                    getContentResolver().takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
                     resultReturned = true;
                     ResultReturner.returnData(this, getIntent(), out -> out.println(data.getDataString()));
                 }
@@ -107,16 +88,13 @@ public class SAFAPI {
             return;
         }
 
+        // manageDocumentTree starts an Activity and must run on the main thread
         if ("manageDocumentTree".equals(method)) {
             manageDocumentTree(context, intent);
             return;
         }
 
-        if ("pickFile".equals(method)) {
-            pickFile(context, intent);
-            return;
-        }
-
+        // All other SAF methods perform file I/O and must not block the main thread
         final BroadcastReceiver.PendingResult asyncResult = apiReceiver.goAsync();
         new Thread(() -> {
             try {
@@ -156,7 +134,7 @@ public class SAFAPI {
                 Logger.logError(LOG_TAG, "Unrecognized safmethod: " + "'" + method + "'");
         }
     }
-
+    
     private static void getManagedDocumentTrees(TermuxApiReceiver apiReceiver, Context context, Intent intent) {
         ResultReturner.returnData(apiReceiver, intent, new ResultReturner.ResultJsonWriter()
         {
@@ -170,21 +148,14 @@ public class SAFAPI {
             }
         });
     }
-
+    
     private static void manageDocumentTree(Context context, Intent intent) {
         Intent i = new Intent(context, SAFActivity.class);
         i.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         ResultReturner.copyIntentExtras(intent, i);
         context.startActivity(i);
     }
-
-    private static void pickFile(Context context, Intent intent) {
-        Intent i = new Intent(context, SAFActivity.class);
-        i.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        ResultReturner.copyIntentExtras(intent, i);
-        context.startActivity(i);
-    }
-
+    
     private static void writeDocument(TermuxApiReceiver apiReceiver, Context context, Intent intent) {
         String uri = intent.getStringExtra("uri");
         if (uri == null) {
@@ -197,7 +168,7 @@ public class SAFAPI {
         }
         writeDocumentFile(apiReceiver, context, intent, f);
     }
-
+    
     private static void createDocument(TermuxApiReceiver apiReceiver, Context context, Intent intent) {
         String treeURIString = intent.getStringExtra("treeuri");
         if (treeURIString == null) {
@@ -220,11 +191,11 @@ public class SAFAPI {
         } catch (IllegalArgumentException ignored) {}
         final String finalMime = mime;
         final String finalId = id;
-        ResultReturner.returnData(apiReceiver, intent, out ->
+        ResultReturner.returnData(apiReceiver, intent, out -> 
                 out.println(DocumentsContract.createDocument(context.getContentResolver(), DocumentsContract.buildDocumentUriUsingTree(treeURI, finalId), finalMime, name).toString())
         );
     }
-
+    
     private static void readDocument(TermuxApiReceiver apiReceiver, Context context, Intent intent) {
         String uri = intent.getStringExtra("uri");
         if (uri == null) {
@@ -237,7 +208,7 @@ public class SAFAPI {
         }
         returnDocumentFile(apiReceiver, context, intent, f);
     }
-
+    
     private static void listDirectory(TermuxApiReceiver apiReceiver, Context context, Intent intent) {
         String treeURIString = intent.getStringExtra("treeuri");
         if (treeURIString == null) {
@@ -266,7 +237,7 @@ public class SAFAPI {
             }
         });
     }
-
+    
     private static void statURI(TermuxApiReceiver apiReceiver, Context context, Intent intent) {
         String uriString = intent.getStringExtra("uri");
         if (uriString == null) {
@@ -282,8 +253,8 @@ public class SAFAPI {
             }
         });
     }
-
-
+    
+    
     private static void removeDocument(TermuxApiReceiver apiReceiver, Context context, Intent intent) {
         String uri = intent.getStringExtra("uri");
         if (uri == null) {
@@ -302,8 +273,8 @@ public class SAFAPI {
             }
         });
     }
-
-
+    
+    
     private static Uri treeUriToDocumentUri(Uri tree) {
         String id = DocumentsContract.getTreeDocumentId(tree);
         try {
@@ -311,7 +282,7 @@ public class SAFAPI {
         } catch (IllegalArgumentException ignored) {}
         return DocumentsContract.buildDocumentUriUsingTree(tree, id);
     }
-
+    
     private static void statDocument(JsonWriter out, Context context, Uri uri) throws Exception {
         try (Cursor c = context.getContentResolver().query(uri, null, null, null, null)) {
             if (c == null || c.getCount() == 0) {
@@ -355,7 +326,7 @@ public class SAFAPI {
             out.endObject();
         }
     }
-
+    
     private static void returnDocumentFile(TermuxApiReceiver apiReceiver, Context context, Intent intent, DocumentFile f) {
         ResultReturner.returnData(apiReceiver, intent, new ResultReturner.BinaryOutput()
         {
@@ -367,7 +338,7 @@ public class SAFAPI {
             }
         });
     }
-
+    
     private static void writeDocumentFile(TermuxApiReceiver apiReceiver, Context context, Intent intent, DocumentFile f) {
         ResultReturner.returnData(apiReceiver, intent, new ResultReturner.WithInput()
         {
@@ -379,7 +350,7 @@ public class SAFAPI {
             }
         });
     }
-
+    
     private static void writeInputStreamToOutputStream(InputStream in, OutputStream out) throws IOException {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             FileUtils.copy(in, out);
@@ -392,5 +363,5 @@ public class SAFAPI {
             }
         }
     }
-
+    
 }

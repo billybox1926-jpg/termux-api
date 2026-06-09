@@ -40,7 +40,6 @@ android {
 
         debug {
             signingConfig signingConfigs.debug
-            manifestPlaceholders.TERMUX_PACKAGE_NAME = "com.termux.api"
         }
     }
 
