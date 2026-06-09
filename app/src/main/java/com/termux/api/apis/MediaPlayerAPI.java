@@ -27,6 +27,39 @@ public class MediaPlayerAPI {
     public static void onReceive(final Context context, final Intent intent) {
         Logger.logDebug(LOG_TAG, "onReceive");
 
+        // Fix for issue #323: handle stdin playback by piping to temp file first
+        if ("playstdin".equals(intent.getStringExtra("action"))) {
+            // We need to handle this specially - read stdin in background
+            ResultReturner.returnData(context, intent, new ResultReturner.WithInput() {
+                @Override
+                public void writeResult(java.io.PrintWriter out) {
+                    try {
+                        // Read all stdin data and write to temp file
+                        java.io.File tempFile = java.io.File.createTempFile("termux_mplayer_", ".tmp",
+                                context.getCacheDir());
+                        tempFile.deleteOnExit();
+                        java.io.FileOutputStream fos = new java.io.FileOutputStream(tempFile);
+                        byte[] buffer = new byte[8192];
+                        int bytesRead;
+                        while ((bytesRead = in.read(buffer)) != -1) {
+                            fos.write(buffer, 0, bytesRead);
+                        }
+                        fos.close();
+
+                        // Now start the service to play the temp file
+                        Intent playerService = new Intent(context, MediaPlayerService.class);
+                        playerService.setAction("play");
+                        playerService.putExtra("file", tempFile.getCanonicalPath());
+                        context.startService(playerService);
+                        out.println("Playing stdin stream (" + tempFile.length() + " bytes)");
+                    } catch (Exception e) {
+                        out.println("Error: " + e.getMessage());
+                    }
+                }
+            });
+            return;
+        }
+
         // Create intent for starting our player service and make sure
         // we retain all relevant info from this intent
         Intent playerService = new Intent(context, MediaPlayerService.class);
@@ -149,6 +182,8 @@ public class MediaPlayerAPI {
                     return infoHandler;
                 case "play":
                     return playHandler;
+                case "playstdin":
+                    return playStdinHandler;  // Fix for issue #323
                 case "pause":
                     return pauseHandler;
                 case "resume":
@@ -303,6 +338,46 @@ public class MediaPlayerAPI {
                     result.message = "Stopped playback\nTrack cleared";
                 } else {
                     result.message = "No track to stop";
+                }
+                return result;
+            }
+        };
+
+        // Fix for issue #323: play media from stdin by piping to temp file
+        static MediaCommandHandler playStdinHandler = new MediaCommandHandler() {
+            @Override
+            public MediaCommandResult handle(MediaPlayer player, Context context, Intent intent) {
+                MediaCommandResult result = new MediaCommandResult();
+                try {
+                    // Read all data from stdin via the input socket
+                    java.io.InputStream in = new java.io.FileInputStream(
+                            intent.getStringExtra("stdin_fd"));
+                    java.io.File tempFile = java.io.File.createTempFile("termux_mplayer_", ".tmp",
+                            context.getCacheDir());
+                    tempFile.deleteOnExit();
+                    java.io.FileOutputStream out = new java.io.FileOutputStream(tempFile);
+                    byte[] buffer = new byte[8192];
+                    int bytesRead;
+                    while ((bytesRead = in.read(buffer)) != -1) {
+                        out.write(buffer, 0, bytesRead);
+                    }
+                    out.close();
+                    in.close();
+
+                    if (hasTrack) {
+                        player.stop();
+                        player.reset();
+                        hasTrack = false;
+                    }
+
+                    player.setDataSource(tempFile.getCanonicalPath());
+                    player.prepare();
+                    player.start();
+                    hasTrack = true;
+                    trackName = "stdin";
+                    result.message = "Now Playing: stdin stream";
+                } catch (Exception e) {
+                    result.error = "Error playing stdin: " + e.getMessage();
                 }
                 return result;
             }

@@ -274,7 +274,7 @@ public class DialogAPI {
             public String text = "";
             public String error = "";
             public int code = 0;
-            public static int index = -1;
+            public int index = -1;  // Fix for issue #414: was static, shared across all instances
             public List<Value> values = new ArrayList<>();
         }
 
@@ -642,7 +642,7 @@ public class DialogAPI {
             String getResult() {
                 int radioIndex = radioGroup.indexOfChild(widgetView.findViewById(radioGroup.getCheckedRadioButtonId()));
                 RadioButton radioButton = (RadioButton) radioGroup.getChildAt(radioIndex);
-                InputResult.index = radioIndex;
+                inputResult.index = radioIndex;  // Fix for issue #414: use instance field, not static
                 return (radioButton != null) ? radioButton.getText().toString() : "";
             }
         }
@@ -991,6 +991,8 @@ public class DialogAPI {
             }
 
             void postCanceledResult() {
+                // Fix for issue #414: don't overwrite if result already returned
+                if (activity.isFinishing()) return;
                 inputResult.code = Dialog.BUTTON_NEGATIVE;
                 resultListener.onResult(inputResult);
             }

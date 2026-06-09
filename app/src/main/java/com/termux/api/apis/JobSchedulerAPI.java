@@ -144,6 +144,14 @@ public class JobSchedulerAPI {
             return;
         }
 
+        // Fix for issue #368: check if job with same ID already exists
+        JobInfo existingJob = jobScheduler.getPendingJob(jobId);
+        if (existingJob != null) {
+            Logger.logErrorPrivate(LOG_TAG, "schedule_job: Job with id " + jobId + " already exists");
+            out.println("Error: Job with id " + jobId + " already exists. Cancel it first with --cancel " + jobId);
+            return;
+        }
+
         File file = new File(scriptPath);
         String fileCheckMsg;
         if (!file.isFile()) {
@@ -183,16 +191,21 @@ public class JobSchedulerAPI {
 
         if (periodicMillis > 0) {
             // For Android `>= 7`, the minimum period is 900000ms (15 minutes).
-            // - https://developer.android.com/reference/android/app/job/JobInfo#getMinPeriodMillis()
-            // - https://cs.android.com/android/_/android/platform/frameworks/base/+/10be4e90
             int flexMillis = intent.getIntExtra("flex_ms", 0);
             if (flexMillis > 0) {
                 builder = builder.setPeriodic(periodicMillis, flexMillis);
             } else {
-                builder = builder.setPeriodic(periodicMillis);
+                // Fix for issue #742: set a default flex of 10% of period to prevent
+                // random scheduling behavior on some devices
+                long defaultFlex = Math.max(periodicMillis / 10, 60000);
+                builder = builder.setPeriodic(periodicMillis, defaultFlex);
             }
+            // Fix for issue #742: set backoff criteria to prevent random rescheduling
+            builder = builder.setBackoffCriteria(30000, JobInfo.BACKOFF_POLICY_EXPONENTIAL);
+        } else {
+            // Fix for issue #742: for one-time jobs, set override deadline to prevent indefinite delay
+            builder = builder.setOverrideDeadline(0);
         }
-
         JobInfo jobInfo = builder.build();
         final int scheduleResponse = jobScheduler.schedule(jobInfo);
         String message = String.format(Locale.ENGLISH, "Scheduling %s - response %d", formatJobInfo(jobInfo), scheduleResponse);

@@ -422,6 +422,8 @@ public class NotificationAPI {
         for (int button = 1; button <= 3; button++) {
             String buttonText = intent.getStringExtra("button_text_" + button);
             String buttonAction = intent.getStringExtra("button_action_" + button);
+            // Fix for issue #311: support setting clipboard directly from notification action
+            String buttonClipboard = intent.getStringExtra("button_clipboard_" + button);
 
             if (buttonText != null && buttonAction != null) {
                 if (buttonAction.contains("$REPLY")) {
@@ -433,6 +435,10 @@ public class NotificationAPI {
                 PendingIntent pi = createAction(context, buttonAction);
                     notification.addAction(new NotificationCompat.Action(android.R.drawable.ic_input_add, buttonText, pi));
                 }
+            } else if (buttonText != null && buttonClipboard != null) {
+                // Fix for issue #311: clipboard action button
+                PendingIntent pi = createClipboardAction(context, buttonClipboard, button);
+                notification.addAction(new NotificationCompat.Action(android.R.drawable.ic_input_add, buttonText, pi));
             }
         }
 
@@ -537,6 +543,19 @@ public class NotificationAPI {
             // Cancel the notification
             notificationManager.cancel(notificationId, 0);
         }
+    }
+
+    /**
+     * Fix for issue #311: create a PendingIntent that broadcasts to set the clipboard directly.
+     */
+    static PendingIntent createClipboardAction(final Context context, String clipboardText, int requestCode) {
+        Intent clipboardIntent = new Intent();
+        clipboardIntent.setClassName(TermuxConstants.TERMUX_API_PACKAGE_NAME, TermuxAPIConstants.TERMUX_API_RECEIVER_NAME);
+        clipboardIntent.putExtra("api_method", "Clipboard");
+        clipboardIntent.putExtra("set", true);
+        clipboardIntent.putExtra("text", clipboardText);
+        return PendingIntent.getBroadcast(context, requestCode + 100, clipboardIntent,
+                PendingIntentUtils.getPendingIntentImmutableFlag());
     }
 
     static Intent createExecuteIntent(String action){

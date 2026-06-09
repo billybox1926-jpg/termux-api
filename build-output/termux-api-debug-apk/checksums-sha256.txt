@@ -1,0 +1,1 @@
+1b75528b969fa5d4810960b57a8fd73dffadaa2c2eeae4dada9454c4f011fd32  termux-api-app_0.53.0+fe06842.github.debug.apk

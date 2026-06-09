@@ -30,6 +30,20 @@ public class TextToSpeechAPI {
     public static void onReceive(final Context context, Intent intent) {
         Logger.logDebug(LOG_TAG, "onReceive");
 
+        // Fix for issue #266: support stopping in-progress TTS
+        boolean stop = intent.getBooleanExtra("stop", false);
+        if (stop) {
+            synchronized (ttsLock) {
+                if (mTts != null) {
+                    mTts.stop();
+                    mTts.shutdown();
+                    mTts = null;
+                }
+            }
+            ResultReturner.returnData(context, intent, out -> out.println("TTS stopped"));
+            return;
+        }
+
         context.startService(new Intent(context, TextToSpeechService.class).putExtras(intent.getExtras()));
     }
 

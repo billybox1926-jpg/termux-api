@@ -85,6 +85,10 @@ public class TermuxApiReceiver extends BroadcastReceiver {
         String apiMethod = intent.getStringExtra("api_method");
         if (apiMethod == null) {
             Logger.logError(LOG_TAG, "Missing 'api_method' extra");
+            // Fix for issue #844: return error instead of silently ignoring
+            ResultReturner.returnData(this, intent, out -> {
+                out.println("Error: Missing 'api_method' extra. Invalid action may have been used.");
+            });
             return;
         }
 
