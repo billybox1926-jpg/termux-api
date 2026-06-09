@@ -267,6 +267,15 @@ public class SmsInboxAPI {
         // Deprecated: Address can be a name like service provider instead of a number.
         out.name("number").value(smsAddress);
 
+        // Fix for issue #431: include subscription ID for dual-SIM
+        int subIdIdx = c.getColumnIndex("sub_id");
+        if (subIdIdx >= 0) {
+            int subId = c.getInt(subIdIdx);
+            if (subId >= 0) {
+                out.name("subscription_id").value(subId);
+            }
+        }
+
         out.name("received").value(dateFormat.format(new Date(smsReceivedDate)));
         // if (Math.abs(smsReceivedDate - smsSentDate) >= 60000) {
         // out.write(" (sent ");
