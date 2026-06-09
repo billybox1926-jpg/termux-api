@@ -239,6 +239,11 @@ public class NotificationAPI {
         notification.setWhen(System.currentTimeMillis());
         notification.setShowWhen(true);
 
+        // Lockscreen visibility support (#92)
+        if (intent.getBooleanExtra("show_on_lock_screen", false)) {
+            notification.setVisibility(NotificationCompat.VISIBILITY_PUBLIC);
+        }
+
 
         String smallIconName = intent.getStringExtra("icon");
         if (smallIconName != null) {
