@@ -65,12 +65,12 @@ If you switch installation sources, uninstall the related Termux apps/plugins fi
 
 This fork is carrying workbench changes before they are split into clean upstream pull requests.
 
-| Area | Status | Notes |
-| --- | --- | --- |
-| Keyboard API | App-side implementation added | Adds `KeyboardShow`, `KeyboardHide`, and `KeyboardVisible` app methods for matching package wrappers. |
-| SAF picker | App-side implementation added | Adds a file-picker flow intended for a `termux-saf-picker` wrapper. |
-| Media notifications | Behavior fixed | Media notifications can expose whichever media actions are provided instead of requiring the full action set. |
-| Antivirus false positives | Documentation added | Explains official build sources, debug signing, and useful report details. |
+| Area                      | Status                        | Notes                                                                                                         |
+| ------------------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Keyboard API              | App-side implementation added | Adds `KeyboardShow`, `KeyboardHide`, and `KeyboardVisible` app methods for matching package wrappers.         |
+| SAF picker                | App-side implementation added | Adds a file-picker flow intended for a `termux-saf-picker` wrapper.                                           |
+| Media notifications       | Behavior fixed                | Media notifications can expose whichever media actions are provided instead of requiring the full action set. |
+| Antivirus false positives | Documentation added           | Explains official build sources, debug signing, and useful report details.                                    |
 
 Keyboard visibility is best-effort on Android. IME state depends on the focused window, keyboard implementation, Android version, and whether an app currently owns an editable view.
 
@@ -98,10 +98,10 @@ The app performs Android-side work; the Termux command receives plain terminal o
 
 ### Requirements
 
-- Android SDK with `compileSdkVersion=35`
-- Android 7.0 / API 24 minimum runtime
-- Java 11-compatible toolchain
-- Gradle wrapper from this repository
+* Android SDK with `compileSdkVersion=35`
+* Android 7.0 / API 24 minimum runtime
+* Java 11-compatible toolchain
+* Gradle wrapper from this repository
 
 ### Build
 
@@ -153,11 +153,11 @@ termux-api/
 
 Most feature work happens in one of three places:
 
-| Change | File area |
-| --- | --- |
-| New Android API behavior | `app/src/main/java/com/termux/api/apis/` |
-| Request dispatch | `TermuxApiReceiver.java` |
-| Permissions / activities / services | `app/src/main/AndroidManifest.xml` |
+| Change                              | File area                                |
+| ----------------------------------- | ---------------------------------------- |
+| New Android API behavior            | `app/src/main/java/com/termux/api/apis/` |
+| Request dispatch                    | `TermuxApiReceiver.java`                 |
+| Permissions / activities / services | `app/src/main/AndroidManifest.xml`       |
 
 Command wrappers belong in the companion `termux-api-package` repository.
 
@@ -180,7 +180,7 @@ Keep PRs focused. A clean upstream-ready change should explain the user-visible 
 
 ## Security
 
-Security reporting guidance is in [`SECURITY.md`](SECURITY.md). For general Termux security policy, see <https://termux.dev/security>.
+Security reporting guidance is in [`SECURITY.md`](SECURITY.md). For general Termux security policy, see [https://termux.dev/security](https://termux.dev/security).
 
 ---
 
