@@ -41,7 +41,7 @@ android {
         debug {
             signingConfig signingConfigs.debug
             applicationIdSuffix ".debug"
-            manifestPlaceholders.TERMUX_PACKAGE_NAME = "com.termux.api"
+            manifestPlaceholders.TERMUX_PACKAGE_NAME = "com.termux.api.debug"
         }
     }
 
