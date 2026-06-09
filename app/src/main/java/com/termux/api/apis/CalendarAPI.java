@@ -33,8 +33,9 @@ public class CalendarAPI {
 
         String action = intent.getStringExtra("action");
         if (action == null) action = "list";
+        final String actionFinal = action;
 
-        switch (action) {
+        switch (actionFinal) {
             case "add":
                 addEvent(apiReceiver, context, intent);
                 break;
@@ -46,7 +47,7 @@ public class CalendarAPI {
                 break;
             default:
                 ResultReturner.returnData(apiReceiver, intent, out ->
-                        out.println("Error: Unknown action '" + action + "'. Use 'add', 'list', or 'delete'."));
+                        out.println("Error: Unknown action '" + actionFinal + "'. Use 'add', 'list', or 'delete'."));
         }
     }
 
