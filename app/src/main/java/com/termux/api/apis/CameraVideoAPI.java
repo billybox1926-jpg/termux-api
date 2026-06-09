@@ -46,81 +46,93 @@ public class CameraVideoAPI {
     private static volatile File sOutputFile;
     private static volatile boolean sRecording = false;
 
-    public static void onReceive(TermuxApiReceiver apiReceiver, final Context context, Intent intent) {
+    public static void onReceive(final TermuxApiReceiver apiReceiver, final Context context, final Intent intent) {
         Logger.logDebug(LOG_TAG, "onReceive");
 
-        String action = intent.getStringExtra("action");
-        if (action == null) action = "start";
-        final String finalAction = action;
-
-        switch (finalAction) {
+        final String action = getAction(intent);
+        switch (action) {
             case "start":
                 startRecording(apiReceiver, context, intent);
                 break;
             case "quit":
             case "stop":
-                stopRecording(apiReceiver, context, intent);
+                stopRecording(apiReceiver, intent);
                 break;
             default:
-                ResultReturner.returnData(apiReceiver, intent, out ->
-                        out.println("Error: Unknown action '" + finalAction + "'. Use 'start' or 'quit'."));
+                ResultReturner.returnData(apiReceiver, intent, new ResultReturner.ResultWriter() {
+                    @Override
+                    public void writeResult(final PrintWriter out) {
+                        out.println("Error: Unknown action '" + action + "'. Use 'start' or 'quit'.");
+                    }
+                });
         }
+    }
+
+    private static String getAction(final Intent intent) {
+        final String action = intent.getStringExtra("action");
+        return (action == null || action.isEmpty()) ? "start" : action;
     }
 
     // ── start ──────────────────────────────────────────────
 
-    private static void startRecording(TermuxApiReceiver apiReceiver, final Context context, Intent intent) {
-        ResultReturner.returnData(apiReceiver, intent, out -> {
-            if (sRecording) {
-                out.println("Error: Already recording. Use 'quit' first.");
-                return;
-            }
-
-            String filePath = intent.getStringExtra("file");
-            if (filePath == null || filePath.isEmpty()) {
-                out.println("Error: Missing 'file' extra");
-                return;
-            }
-
-            String videoFilePath = TermuxFileUtils.getCanonicalPath(filePath, null, true);
-            String videoDirPath = FileUtils.getFileDirname(videoFilePath);
-            Error error = TermuxFileUtils.validateDirectoryFileExistenceAndPermissions(
-                    "video directory", videoDirPath, true, true, true, false, true);
-            if (error != null) {
-                out.println("ERROR: " + error.getErrorLogString());
-                return;
-            }
-
-            String cameraId = intent.getStringExtra("camera");
-            if (cameraId == null || cameraId.isEmpty()) cameraId = "0";
-            final String finalCameraId = cameraId;
-
-            int maxDuration = intent.getIntExtra("duration", 60);
-            if (maxDuration <= 0) maxDuration = 60;
-            final int finalMaxDuration = maxDuration;
-
-            sOutputFile = new File(videoFilePath);
-
-            // Prepare MediaRecorder on a background thread with its own Looper
-            new Thread(() -> {
-                try {
-                    Looper.prepare();
-                    sLooper = Looper.myLooper();
-
-                    prepareMediaRecorder(context, sOutputFile, finalCameraId, intent);
-                    openCameraAndStartRecording(context, finalCameraId, out, finalMaxDuration);
-
-                    Looper.loop();
-                } catch (Exception e) {
-                    Logger.logStackTraceWithMessage(LOG_TAG, "startRecording error", e);
-                    out.println("Error: " + e.getMessage());
-                    cleanup();
+    private static void startRecording(final TermuxApiReceiver apiReceiver, final Context context, final Intent intent) {
+        ResultReturner.returnData(apiReceiver, intent, new ResultReturner.ResultWriter() {
+            @Override
+            public void writeResult(final PrintWriter out) {
+                if (sRecording) {
+                    out.println("Error: Already recording. Use 'quit' first.");
+                    return;
                 }
-            }).start();
+
+                final String filePath = intent.getStringExtra("file");
+                if (filePath == null || filePath.isEmpty()) {
+                    out.println("Error: Missing 'file' extra");
+                    return;
+                }
+
+                final String videoFilePath = TermuxFileUtils.getCanonicalPath(filePath, null, true);
+                final String videoDirPath = FileUtils.getFileDirname(videoFilePath);
+                final Error error = TermuxFileUtils.validateDirectoryFileExistenceAndPermissions(
+                        "video directory", videoDirPath, true, true, true, false, true);
+                if (error != null) {
+                    out.println("ERROR: " + error.getErrorLogString());
+                    return;
+                }
+
+                final String requestedCameraId = intent.getStringExtra("camera");
+                final String cameraId = (requestedCameraId == null || requestedCameraId.isEmpty()) ? "0" : requestedCameraId;
+
+                final int requestedMaxDuration = intent.getIntExtra("duration", 60);
+                final int maxDuration = requestedMaxDuration <= 0 ? 60 : requestedMaxDuration;
+
+                final File outputFile = new File(videoFilePath);
+                sOutputFile = outputFile;
+
+                // Prepare MediaRecorder on a background thread with its own Looper.
+                new Thread(new Runnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            Looper.prepare();
+                            sLooper = Looper.myLooper();
+
+                            prepareMediaRecorder(context, outputFile, cameraId);
+                            openCameraAndStartRecording(context, cameraId, out, maxDuration);
+
+                            Looper.loop();
+                        } catch (Exception e) {
+                            Logger.logStackTraceWithMessage(LOG_TAG, "startRecording error", e);
+                            out.println("Error: " + e.getMessage());
+                            cleanup();
+                            quitLooper();
+                        }
+                    }
+                }).start();
+            }
         });
     }
 
-    private static void prepareMediaRecorder(Context context, File outputFile, String cameraId, Intent intent) {
+    private static void prepareMediaRecorder(final Context context, final File outputFile, final String cameraId) {
         sMediaRecorder = new MediaRecorder();
 
         // Audio + video sources
@@ -133,10 +145,10 @@ public class CameraVideoAPI {
         sMediaRecorder.setVideoEncoder(MediaRecorder.VideoEncoder.H264);
 
         // Resolution
-        CameraManager manager = (CameraManager) context.getSystemService(Context.CAMERA_SERVICE);
+        final CameraManager manager = (CameraManager) context.getSystemService(Context.CAMERA_SERVICE);
         try {
-            CameraCharacteristics chars = manager.getCameraCharacteristics(cameraId);
-            Size videoSize = chooseVideoSize(chars);
+            final CameraCharacteristics chars = manager.getCameraCharacteristics(cameraId);
+            final Size videoSize = chooseVideoSize(chars);
             sMediaRecorder.setVideoSize(videoSize.getWidth(), videoSize.getHeight());
         } catch (CameraAccessException e) {
             // Fallback to 720p
@@ -156,28 +168,32 @@ public class CameraVideoAPI {
         }
     }
 
-    private static Size chooseVideoSize(CameraCharacteristics chars) {
+    private static Size chooseVideoSize(final CameraCharacteristics chars) {
         try {
-            android.hardware.camera2.params.StreamConfigurationMap map =
+            final android.hardware.camera2.params.StreamConfigurationMap map =
                     chars.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
             if (map != null) {
-                Size[] videoSizes = map.getOutputSizes(MediaRecorder.class);
+                final Size[] videoSizes = map.getOutputSizes(MediaRecorder.class);
                 if (videoSizes != null && videoSizes.length > 0) {
-                    // Pick 1280x720 if available, else largest <= 1920x1080
-                    List<Size> sizes = Arrays.asList(videoSizes);
-                    // Prefer 1280x720
-                    for (Size s : sizes) {
-                        if (s.getWidth() == 1280 && s.getHeight() == 720) return s;
+                    // Pick 1280x720 if available, else largest <= 1920x1080.
+                    final List<Size> sizes = Arrays.asList(videoSizes);
+                    for (final Size size : sizes) {
+                        if (size.getWidth() == 1280 && size.getHeight() == 720) return size;
                     }
-                    // Else largest <= 1080p
-                    Comparator<Size> byArea = (a, b) ->
-                            Long.signum((long) a.getWidth() * a.getHeight() - (long) b.getWidth() * b.getHeight());
-                    List<Size> filtered = new ArrayList<>();
-                    for (Size s : sizes) {
-                        if (s.getWidth() <= 1920 && s.getHeight() <= 1080) filtered.add(s);
+
+                    final Comparator<Size> byArea = new Comparator<Size>() {
+                        @Override
+                        public int compare(final Size a, final Size b) {
+                            return Long.signum((long) a.getWidth() * a.getHeight() -
+                                    (long) b.getWidth() * b.getHeight());
+                        }
+                    };
+
+                    final List<Size> filtered = new ArrayList<>();
+                    for (final Size size : sizes) {
+                        if (size.getWidth() <= 1920 && size.getHeight() <= 1080) filtered.add(size);
                     }
                     if (!filtered.isEmpty()) return Collections.max(filtered, byArea);
-                    // Fallback to smallest
                     return Collections.min(sizes, byArea);
                 }
             }
@@ -185,14 +201,14 @@ public class CameraVideoAPI {
         return new Size(1280, 720);
     }
 
-    private static void openCameraAndStartRecording(final Context context, String cameraId,
-                                                     final PrintWriter out, int maxDuration) throws Exception {
+    private static void openCameraAndStartRecording(final Context context, final String cameraId,
+                                                     final PrintWriter out, final int maxDuration) throws Exception {
         final CameraManager manager = (CameraManager) context.getSystemService(Context.CAMERA_SERVICE);
 
         //noinspection MissingPermission
         manager.openCamera(cameraId, new CameraDevice.StateCallback() {
             @Override
-            public void onOpened(CameraDevice camera) {
+            public void onOpened(final CameraDevice camera) {
                 sCameraDevice = camera;
                 try {
                     startPreviewAndRecording(camera, out, maxDuration);
@@ -200,41 +216,45 @@ public class CameraVideoAPI {
                     Logger.logStackTraceWithMessage(LOG_TAG, "Recording start failed", e);
                     out.println("Error: " + e.getMessage());
                     cleanup();
+                    quitLooper();
                 }
             }
 
             @Override
-            public void onDisconnected(CameraDevice camera) {
+            public void onDisconnected(final CameraDevice camera) {
                 out.println("Error: Camera disconnected");
                 cleanup();
+                quitLooper();
             }
 
             @Override
-            public void onError(CameraDevice camera, int errorCode) {
+            public void onError(final CameraDevice camera, final int errorCode) {
                 out.println("Error: Camera error " + errorCode);
                 cleanup();
+                quitLooper();
             }
         }, null);
     }
 
-    private static void startPreviewAndRecording(CameraDevice camera, PrintWriter out, int maxDuration) throws CameraAccessException {
-        List<Surface> surfaces = new ArrayList<>();
+    private static void startPreviewAndRecording(final CameraDevice camera, final PrintWriter out,
+                                                  final int maxDuration) throws CameraAccessException {
+        final List<Surface> surfaces = new ArrayList<>();
 
         // MediaRecorder surface
-        Surface recorderSurface = sMediaRecorder.getSurface();
+        final Surface recorderSurface = sMediaRecorder.getSurface();
         surfaces.add(recorderSurface);
 
         // Dummy preview surface
-        android.graphics.SurfaceTexture previewTexture = new android.graphics.SurfaceTexture(1);
-        Surface dummySurface = new Surface(previewTexture);
+        final android.graphics.SurfaceTexture previewTexture = new android.graphics.SurfaceTexture(1);
+        final Surface dummySurface = new Surface(previewTexture);
         surfaces.add(dummySurface);
 
         camera.createCaptureSession(surfaces, new CameraCaptureSession.StateCallback() {
             @Override
-            public void onConfigured(CameraCaptureSession session) {
+            public void onConfigured(final CameraCaptureSession session) {
                 sCaptureSession = session;
                 try {
-                    CaptureRequest.Builder builder = camera.createCaptureRequest(CameraDevice.TEMPLATE_RECORD);
+                    final CaptureRequest.Builder builder = camera.createCaptureRequest(CameraDevice.TEMPLATE_RECORD);
                     builder.addTarget(recorderSurface);
                     builder.addTarget(dummySurface);
                     session.setRepeatingRequest(builder.build(), null, null);
@@ -244,53 +264,65 @@ public class CameraVideoAPI {
                     out.println("Recording started: " + sOutputFile.getAbsolutePath());
                     out.println("Max duration: " + maxDuration + "s");
 
-                    // Auto-stop after maxDuration
-                    new Thread(() -> {
-                        try {
-                            Thread.sleep(maxDuration * 1000L);
-                            if (sRecording) {
-                                Logger.logInfo(LOG_TAG, "Max duration reached, stopping");
-                                stopRecording(null, null, null);
-                            }
-                        } catch (InterruptedException ignored) {}
+                    // Auto-stop after maxDuration.
+                    new Thread(new Runnable() {
+                        @Override
+                        public void run() {
+                            try {
+                                Thread.sleep(maxDuration * 1000L);
+                                if (sRecording) {
+                                    Logger.logInfo(LOG_TAG, "Max duration reached, stopping");
+                                    stopRecordingInternal(null);
+                                }
+                            } catch (InterruptedException ignored) {}
+                        }
                     }).start();
 
                 } catch (Exception e) {
                     Logger.logStackTraceWithMessage(LOG_TAG, "Recording start failed", e);
                     out.println("Error: " + e.getMessage());
                     cleanup();
+                    quitLooper();
                 }
             }
 
             @Override
-            public void onConfigureFailed(CameraCaptureSession session) {
+            public void onConfigureFailed(final CameraCaptureSession session) {
                 out.println("Error: Camera configure failed");
                 cleanup();
+                quitLooper();
             }
         }, null);
     }
 
     // ── stop ───────────────────────────────────────────────
 
-    private static void stopRecording(TermuxApiReceiver apiReceiver, Context context, Intent intent) {
-        ResultReturner.returnData(apiReceiver, intent, out -> {
-            if (!sRecording) {
-                out.println("Error: No recording in progress");
-                return;
-            }
-
-            try {
-                sMediaRecorder.stop();
-                sRecording = false;
-                out.println("Recording saved: " + sOutputFile.getAbsolutePath());
-            } catch (Exception e) {
-                Logger.logStackTraceWithMessage(LOG_TAG, "Stop recording error", e);
-                out.println("Error stopping recording: " + e.getMessage());
-            } finally {
-                cleanup();
-                if (sLooper != null) sLooper.quit();
+    private static void stopRecording(final TermuxApiReceiver apiReceiver, final Intent intent) {
+        ResultReturner.returnData(apiReceiver, intent, new ResultReturner.ResultWriter() {
+            @Override
+            public void writeResult(final PrintWriter out) {
+                stopRecordingInternal(out);
             }
         });
+    }
+
+    private static synchronized void stopRecordingInternal(final PrintWriter out) {
+        if (!sRecording) {
+            if (out != null) out.println("Error: No recording in progress");
+            return;
+        }
+
+        try {
+            sMediaRecorder.stop();
+            sRecording = false;
+            if (out != null) out.println("Recording saved: " + sOutputFile.getAbsolutePath());
+        } catch (Exception e) {
+            Logger.logStackTraceWithMessage(LOG_TAG, "Stop recording error", e);
+            if (out != null) out.println("Error stopping recording: " + e.getMessage());
+        } finally {
+            cleanup();
+            quitLooper();
+        }
     }
 
     // ── cleanup ────────────────────────────────────────────
@@ -313,5 +345,12 @@ public class CameraVideoAPI {
             sCameraDevice = null;
         }
         Logger.logDebug(LOG_TAG, "CameraVideo cleanup done");
+    }
+
+    private static void quitLooper() {
+        if (sLooper != null) {
+            sLooper.quit();
+            sLooper = null;
+        }
     }
 }
