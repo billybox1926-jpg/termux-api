@@ -3,9 +3,12 @@ package com.termux.api.apis;
 import android.content.Context;
 import android.content.Intent;
 import android.content.res.Configuration;
+import android.graphics.Point;
 import android.os.Build;
 import android.provider.Settings;
+import android.util.DisplayMetrics;
 import android.util.JsonWriter;
+import android.view.WindowManager;
 
 import com.termux.api.TermuxApiReceiver;
 import com.termux.api.util.ResultReturner;
@@ -36,6 +39,10 @@ public class SettingAPI {
             // Fix for issue #425: dark mode detection
             case "dark_mode":
                 getDarkMode(apiReceiver, context, intent);
+                break;
+            // Fix for issue #595: display info API
+            case "display_info":
+                getDisplayInfo(apiReceiver, context, intent);
                 break;
             default:
                 ResultReturner.returnData(apiReceiver, intent, out -> out.println("Error: Unknown action: " + action));
@@ -103,6 +110,42 @@ public class SettingAPI {
                     isDarkMode = nightMode != 0;
                 }
                 out.name("dark_mode").value(isDarkMode);
+                out.endObject();
+            }
+        });
+    }
+
+    // Fix for issue #595: display info (screen size, density, etc.)
+    private static void getDisplayInfo(TermuxApiReceiver apiReceiver, final Context context, final Intent intent) {
+        ResultReturner.returnData(apiReceiver, intent, new ResultReturner.ResultJsonWriter() {
+            @Override
+            public void writeJson(JsonWriter out) throws Exception {
+                out.beginObject();
+                WindowManager wm = (WindowManager) context.getSystemService(Context.WINDOW_SERVICE);
+                DisplayMetrics metrics = new DisplayMetrics();
+                if (wm != null) {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                        // Android 11+ use WindowMetrics
+                        android.view.WindowMetrics windowMetrics = wm.getCurrentWindowMetrics();
+                        android.graphics.Rect bounds = windowMetrics.getBounds();
+                        out.name("width_pixels").value(bounds.width());
+                        out.name("height_pixels").value(bounds.height());
+                        // Get density from window metrics config
+                        Configuration config = context.getResources().getConfiguration();
+                        out.name("density_dpi").value(config.densityDpi);
+                        out.name("density").value(context.getResources().getDisplayMetrics().density);
+                    } else {
+                        // Pre-Android 11 use DisplayMetrics
+                        wm.getDefaultDisplay().getMetrics(metrics);
+                        out.name("width_pixels").value(metrics.widthPixels);
+                        out.name("height_pixels").value(metrics.heightPixels);
+                        out.name("density_dpi").value(metrics.densityDpi);
+                        out.name("density").value(metrics.density);
+                        out.name("scaled_density").value(metrics.scaledDensity);
+                        out.name("xdpi").value(metrics.xdpi);
+                        out.name("ydpi").value(metrics.ydpi);
+                    }
+                }
                 out.endObject();
             }
         });
