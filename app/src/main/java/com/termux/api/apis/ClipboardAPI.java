@@ -95,7 +95,7 @@ public class ClipboardAPI {
                             Item item = clipData.getItemAt(i);
                             try {
                                 CharSequence text = item.coerceToText(context);
-                                if (!TextUtils.isEmpty(text)) {
+                                if (text != null && text.length() > 0) {
                                     out.print(text);
                                 }
                             } catch (Exception e) {

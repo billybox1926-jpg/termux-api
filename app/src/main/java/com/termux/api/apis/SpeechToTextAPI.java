@@ -108,7 +108,7 @@ public class SpeechToTextAPI {
                 @Override
                 public void onEndOfSpeech() {
                     Logger.logError(LOG_TAG, "RecognitionListener#onEndOfSpeech()");
-                    queueu.add(STOP_ELEMENT);
+                    // Don't add STOP_ELEMENT here - wait for onResults which may contain final text (#288)
                 }
 
                 @Override
@@ -165,8 +165,14 @@ public class SpeechToTextAPI {
             ResultReturner.returnData(this, intent, new ResultReturner.WithInput() {
                 @Override
                 public void writeResult(PrintWriter out) throws Exception {
+                    // Use poll with timeout to avoid hanging forever if onResults never arrives (#288)
                     while (true) {
-                        String s = queueu.take();
+                        String s = queueu.poll(30, java.util.concurrent.TimeUnit.SECONDS);
+                        if (s == null) {
+                            // Timeout waiting for result
+                            out.println("Error: Speech recognition timed out");
+                            return;
+                        }
                         if (s == STOP_ELEMENT) {
                             return;
                         } else {
@@ -175,7 +181,6 @@ public class SpeechToTextAPI {
                     }
                 }
             });
-
         }
     }
 
