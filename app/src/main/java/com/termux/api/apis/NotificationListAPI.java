@@ -113,11 +113,48 @@ public class NotificationListAPI {
         @Override
         public void onListenerConnected() {
             _this = this;
+            super.onListenerConnected();
         }
 
         @Override
         public void onListenerDisconnected() {
             _this = null;
+            super.onListenerDisconnected();
+        }
+
+        // Fix for issue #860: broadcast posted notifications so clients can listen
+        @Override
+        public void onNotificationPosted(StatusBarNotification sbn) {
+            super.onNotificationPosted(sbn);
+            broadcastNotification("posted", sbn);
+        }
+
+        // Fix for issue #860: broadcast removed notifications
+        @Override
+        public void onNotificationRemoved(StatusBarNotification sbn) {
+            super.onNotificationRemoved(sbn);
+            broadcastNotification("removed", sbn);
+        }
+
+        // Fix for issue #860: broadcast notification events via local broadcast
+        private void broadcastNotification(String event, StatusBarNotification sbn) {
+            try {
+                Intent broadcast = new Intent("com.termux.api.notification." + event);
+                broadcast.putExtra("package", sbn.getPackageName());
+                broadcast.putExtra("id", sbn.getId());
+                broadcast.putExtra("key", sbn.getKey());
+                if (sbn.getTag() != null) broadcast.putExtra("tag", sbn.getTag());
+                if (sbn.getNotification().extras != null) {
+                    CharSequence title = sbn.getNotification().extras.getCharSequence(Notification.EXTRA_TITLE);
+                    if (title != null) broadcast.putExtra("title", title.toString());
+                    CharSequence text = sbn.getNotification().extras.getCharSequence(Notification.EXTRA_TEXT);
+                    if (text != null) broadcast.putExtra("text", text.toString());
+                }
+                broadcast.setPackage(com.termux.shared.termux.TermuxConstants.TERMUX_API_PACKAGE_NAME);
+                sendBroadcast(broadcast);
+            } catch (Exception e) {
+                Logger.logStackTraceWithMessage(LOG_TAG, "Failed to broadcast notification event", e);
+            }
         }
     }
 
