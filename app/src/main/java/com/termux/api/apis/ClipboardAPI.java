@@ -111,9 +111,9 @@ public class ClipboardAPI {
                         // Fix for issue #720: Add trailing newline after clipboard text so piping works correctly
                         out.println();
                     }
-                });
-            } // closes else block
+                }
+            });
         }
     }
-
 }
+

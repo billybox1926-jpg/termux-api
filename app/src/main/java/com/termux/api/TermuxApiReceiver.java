@@ -15,6 +15,7 @@ import com.termux.api.apis.CallLogAPI;
 import com.termux.api.apis.CameraInfoAPI;
 import com.termux.api.apis.CameraPhotoAPI;
 import com.termux.api.apis.CameraVideoAPI;
+import com.termux.api.apis.CalendarAPI;
 import com.termux.api.apis.ClipboardAPI;
 import com.termux.api.apis.ContactListAPI;
 import com.termux.api.apis.DialogAPI;
@@ -124,6 +125,13 @@ public class TermuxApiReceiver extends BroadcastReceiver {
             case "CallLog":
                 if (TermuxApiPermissionActivity.checkAndRequestPermissions(context, intent, Manifest.permission.READ_CALL_LOG)) {
                     CallLogAPI.onReceive(context, intent);
+                }
+                break;
+            // Fix for issue #260: calendar API
+            case "Calendar":
+                if (TermuxApiPermissionActivity.checkAndRequestPermissions(context, intent,
+                        Manifest.permission.READ_CALENDAR, Manifest.permission.WRITE_CALENDAR)) {
+                    CalendarAPI.onReceive(this, context, intent);
                 }
                 break;
             case "Clipboard":
