@@ -265,7 +265,7 @@ public class MicRecorderAPI {
 
                 Logger.logInfo(LOG_TAG, "MediaRecording file is: " + newFile.getAbsolutePath());
 
-                if (newFile.exists()) {
+                if (newFile.exists() && newFile.isFile()) {
                     result.error = String.format("File: %s already exists! Please specify a different filename", newFile.getName());
                 } else {
                     if (isRecording) {

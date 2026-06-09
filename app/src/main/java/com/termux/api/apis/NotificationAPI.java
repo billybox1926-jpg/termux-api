@@ -278,25 +278,25 @@ public class NotificationAPI {
                 int compactIndex = 0;
 
                 if (mediaPrevious != null) {
-                    PendingIntent previousIntent = createAction(context, mediaPrevious);
+                    PendingIntent previousIntent = createMutableAction(context, mediaPrevious, actionCount);
                     notification.addAction(new NotificationCompat.Action(android.R.drawable.ic_media_previous, "previous", previousIntent));
                     actionCount++;
                 }
 
                 if (mediaPause != null) {
-                    PendingIntent pauseIntent = createAction(context, mediaPause);
+                    PendingIntent pauseIntent = createMutableAction(context, mediaPause, actionCount);
                     notification.addAction(new NotificationCompat.Action(android.R.drawable.ic_media_pause, "pause", pauseIntent));
                     actionCount++;
                 }
 
                 if (mediaPlay != null) {
-                    PendingIntent playIntent = createAction(context, mediaPlay);
+                    PendingIntent playIntent = createMutableAction(context, mediaPlay, actionCount);
                     notification.addAction(new NotificationCompat.Action(android.R.drawable.ic_media_play, "play", playIntent));
                     actionCount++;
                 }
 
                 if (mediaNext != null) {
-                    PendingIntent nextIntent = createAction(context, mediaNext);
+                    PendingIntent nextIntent = createMutableAction(context, mediaNext, actionCount);
                     notification.addAction(new NotificationCompat.Action(android.R.drawable.ic_media_next, "next", nextIntent));
                     actionCount++;
                 }
@@ -501,5 +501,15 @@ public class NotificationAPI {
         return PendingIntent.getService(context,
                 PluginUtils.getLastPendingIntentRequestCode(context), executeIntent,
                 PendingIntentUtils.getPendingIntentImmutableFlag());
+    }
+
+    /**
+     * Create a PendingIntent for notification actions that need to be mutable
+     * so the system can properly distinguish between different actions (#540).
+     */
+    static PendingIntent createMutableAction(final Context context, String action, int requestCode){
+        Intent executeIntent = createExecuteIntent(action);
+        return PendingIntent.getService(context, requestCode, executeIntent,
+                PendingIntentUtils.getPendingIntentMutableFlag());
     }
 }
