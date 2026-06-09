@@ -307,9 +307,10 @@ public class UsbAPI {
                 // Request permission and wait.
                 usbManager.requestPermission(device, permissionIntent);
 
+                long permissionTimeout = intent.getLongExtra("permission_timeout", 30L);
                 try {
-                    if (!latch.await(30L, TimeUnit.SECONDS)) {
-                        Logger.logVerbose(LOG_TAG, "Permission request time out for device \"" + device.getDeviceName() + "\" after 30s");
+                    if (!latch.await(permissionTimeout, TimeUnit.SECONDS)) {
+                        Logger.logVerbose(LOG_TAG, "Permission request time out for device \"" + device.getDeviceName() + "\" after " + permissionTimeout + "s");
                         return -1;
                     }
                 } catch (InterruptedException e) {

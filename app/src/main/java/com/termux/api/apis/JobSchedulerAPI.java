@@ -35,6 +35,12 @@ public class JobSchedulerAPI {
         List<String> description = new ArrayList<String>();
         if (jobInfo.isPeriodic()) {
             description.add(String.format(Locale.ENGLISH, "(periodic: %dms)", jobInfo.getIntervalMillis()));
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                long flex = jobInfo.getFlexMillis();
+                if (flex > 0 && flex != jobInfo.getIntervalMillis()) {
+                    description.add(String.format(Locale.ENGLISH, "(flex: %dms)", flex));
+                }
+            }
         }
         if (jobInfo.isRequireCharging()) {
             description.add("(while charging)");
@@ -177,7 +183,12 @@ public class JobSchedulerAPI {
             // For Android `>= 7`, the minimum period is 900000ms (15 minutes).
             // - https://developer.android.com/reference/android/app/job/JobInfo#getMinPeriodMillis()
             // - https://cs.android.com/android/_/android/platform/frameworks/base/+/10be4e90
-            builder = builder.setPeriodic(periodicMillis);
+            int flexMillis = intent.getIntExtra("flex_ms", 0);
+            if (flexMillis > 0) {
+                builder = builder.setPeriodic(periodicMillis, flexMillis);
+            } else {
+                builder = builder.setPeriodic(periodicMillis);
+            }
         }
 
         JobInfo jobInfo = builder.build();

@@ -334,6 +334,26 @@ public class NotificationAPI {
 
         notification.setAutoCancel(true);
 
+        // Progress bar support (#600)
+        int progress = intent.getIntExtra("progress", -1);
+        int progressMax = intent.getIntExtra("progress_max", 100);
+        if (progress >= 0) {
+            notification.setProgress(progressMax, progress, false);
+        } else if (intent.getBooleanExtra("progress_indeterminate", false)) {
+            notification.setProgress(0, 0, true);
+        }
+
+        // Notification color support (#568)
+        String colorExtra = intent.getStringExtra("color");
+        if (colorExtra != null) {
+            try {
+                int color = (int) Long.parseLong(colorExtra, 16);
+                notification.setColor(color);
+            } catch (NumberFormatException e) {
+                Logger.logError(LOG_TAG, "Invalid notification color format: " + colorExtra);
+            }
+        }
+
         if (actionExtra != null) {
             PendingIntent pi = createAction(context, actionExtra);
             notification.setContentIntent(pi);

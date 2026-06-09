@@ -248,16 +248,18 @@ public abstract class ResultReturner {
                     throw new IOException("Missing '" + SOCKET_OUTPUT_EXTRA + "' extra");
                 Logger.logDebug(LOG_TAG, "Connecting to output socket \"" + outputSocketAddress + "\"");
 
-                // Retry connecting to the socket a few times to handle race conditions
-                // where the client may not be ready yet.
+                // Retry connecting to the socket to handle race conditions
+                // where the client may not be ready yet or has momentarily closed.
+                // Up to 5 retries with progressive delay (50ms, 100ms, 150ms, 200ms, 250ms).
                 LocalSocketAddress address = getApiLocalSocketAddress(ResultReturner.context, "output", outputSocketAddress);
                 boolean connected = false;
                 IOException lastException = null;
-                for (int retry = 0; retry < 3 && !connected; retry++) {
+                for (int retry = 0; retry < 5 && !connected; retry++) {
                     try {
                         if (retry > 0) {
-                            Logger.logDebug(LOG_TAG, "Retry " + retry + " connecting to output socket");
-                            Thread.sleep(50);
+                            int delay = retry * 50;
+                            Logger.logDebug(LOG_TAG, "Retry " + retry + " connecting to output socket (delay=" + delay + "ms)");
+                            Thread.sleep(delay);
                         }
                         outputSocket.connect(address);
                         connected = true;

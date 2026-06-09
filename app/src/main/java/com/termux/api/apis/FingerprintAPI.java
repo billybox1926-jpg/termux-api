@@ -118,9 +118,10 @@ public class FingerprintAPI {
     protected static boolean validateFingerprintSensor(Context context, FingerprintManagerCompat fingerprintManagerCompat) {
         boolean result = true;
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            // On Android 11+, BiometricPrompt with DEVICE_CREDENTIAL fallback can work
-            // even without biometric hardware, so don't reject here
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            // On Android 10+, BiometricPrompt can work with face recognition and
+            // other biometric types, not just fingerprint. Don't reject here
+            // and let BiometricPrompt handle the biometric type detection.
             if (!fingerprintManagerCompat.isHardwareDetected()) {
                 Logger.logDebug(LOG_TAG, "No biometric hardware detected, will try DEVICE_CREDENTIAL fallback");
                 // Don't reject - let BiometricPrompt handle it with credential fallback
@@ -215,6 +216,9 @@ public class FingerprintAPI {
                     androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_WEAK |
                     androidx.biometric.BiometricManager.Authenticators.DEVICE_CREDENTIAL
                 );
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                // On Android 10, use setDeviceCredentialAllowed for fallback
+                builder.setDeviceCredentialAllowed(true);
             }
 
             // listen to fingerprint sensor
