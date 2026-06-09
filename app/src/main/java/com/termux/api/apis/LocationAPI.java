@@ -59,36 +59,47 @@ public class LocationAPI {
                         locationToJson(lastKnownLocation, out);
                         break;
                     case REQUEST_ONCE:
-                        Looper.prepare();
-                        manager.requestSingleUpdate(provider, new LocationListener() {
+                        final long timeoutMs = intent.getLongExtra("timeout", 60000);
+                        final Looper[] looper = new Looper[1];
+                        Thread looperThread = new Thread(() -> {
+                            Looper.prepare();
+                            looper[0] = Looper.myLooper();
+                            manager.requestSingleUpdate(provider, new LocationListener() {
+                                @Override
+                                public void onStatusChanged(String changedProvider, int status, Bundle extras) {}
 
-                            @Override
-                            public void onStatusChanged(String changedProvider, int status, Bundle extras) {
-                                // TODO Auto-generated method stub
-                            }
+                                @Override
+                                public void onProviderEnabled(String changedProvider) {}
 
-                            @Override
-                            public void onProviderEnabled(String changedProvider) {
-                                // TODO Auto-generated method stub
-                            }
+                                @Override
+                                public void onProviderDisabled(String changedProvider) {}
 
-                            @Override
-                            public void onProviderDisabled(String changedProvider) {
-                                // TODO Auto-generated method stub
-                            }
-
-                            @Override
-                            public void onLocationChanged(Location location) {
-                                try {
-                                    locationToJson(location, out);
-                                } catch (IOException e) {
-                                    Logger.logStackTraceWithMessage(LOG_TAG, "Writing json", e);
-                                } finally {
-                                    Looper.myLooper().quit();
+                                @Override
+                                public void onLocationChanged(Location location) {
+                                    try {
+                                        locationToJson(location, out);
+                                    } catch (IOException e) {
+                                        Logger.logStackTraceWithMessage(LOG_TAG, "Writing json", e);
+                                    } finally {
+                                        Looper.myLooper().quit();
+                                    }
                                 }
+                            }, null);
+                            Looper.loop();
+                        });
+                        looperThread.start();
+
+                        // Wait for result or timeout
+                        new Thread(() -> {
+                            try {
+                                Thread.sleep(timeoutMs);
+                            } catch (InterruptedException e) {
+                                // ignore
                             }
-                        }, null);
-                        Looper.loop();
+                            if (looper[0] != null) {
+                                looper[0].quit();
+                            }
+                        }).start();
                         break;
                     case REQUEST_UPDATES:
                         Looper.prepare();

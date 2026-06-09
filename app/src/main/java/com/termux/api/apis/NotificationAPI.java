@@ -84,6 +84,14 @@ public class NotificationAPI {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                     NotificationChannel channel = new NotificationChannel(CHANNEL_ID,
                             CHANNEL_TITLE, priorityFromIntent(intent));
+                    // Enable vibration on the channel - required for Android 8+ since
+                    // channel settings override builder settings
+                    channel.enableVibration(true);
+                    // Copy the vibrate pattern from the intent if set
+                    long[] channelVibrate = intent.getLongArrayExtra("vibrate");
+                    if (channelVibrate != null) {
+                        channel.setVibrationPattern(channelVibrate);
+                    }
                     manager.createNotificationChannel(channel);
                 }
 
