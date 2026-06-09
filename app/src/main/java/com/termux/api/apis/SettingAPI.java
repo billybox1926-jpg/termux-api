@@ -2,11 +2,16 @@ package com.termux.api.apis;
 
 import android.content.Context;
 import android.content.Intent;
+import android.content.res.Configuration;
+import android.os.Build;
 import android.provider.Settings;
+import android.util.JsonWriter;
 
 import com.termux.api.TermuxApiReceiver;
 import com.termux.api.util.ResultReturner;
 import com.termux.shared.logger.Logger;
+
+import java.io.PrintWriter;
 
 public class SettingAPI {
 
@@ -27,6 +32,10 @@ public class SettingAPI {
                 break;
             case "put":
                 putSetting(apiReceiver, context, intent);
+                break;
+            // Fix for issue #425: dark mode detection
+            case "dark_mode":
+                getDarkMode(apiReceiver, context, intent);
                 break;
             default:
                 ResultReturner.returnData(apiReceiver, intent, out -> out.println("Error: Unknown action: " + action));
@@ -73,6 +82,28 @@ public class SettingAPI {
                 out.println(value);
             } else {
                 out.println("");
+            }
+        });
+    }
+
+    // Fix for issue #425: detect dark mode
+    private static void getDarkMode(TermuxApiReceiver apiReceiver, final Context context, final Intent intent) {
+        ResultReturner.returnData(apiReceiver, intent, new ResultReturner.ResultJsonWriter() {
+            @Override
+            public void writeJson(JsonWriter out) throws Exception {
+                out.beginObject();
+                boolean isDarkMode = false;
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    // Android 10+ has system dark mode
+                    int nightModeFlags = context.getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK;
+                    isDarkMode = nightModeFlags == Configuration.UI_MODE_NIGHT_YES;
+                } else {
+                    // Pre-Android 10: check if night mode is set via system settings
+                    int nightMode = Settings.System.getInt(context.getContentResolver(), "ui_night_mode", 0);
+                    isDarkMode = nightMode != 0;
+                }
+                out.name("dark_mode").value(isDarkMode);
+                out.endObject();
             }
         });
     }
