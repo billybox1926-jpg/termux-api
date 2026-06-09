@@ -57,7 +57,7 @@ public class NotificationAPI {
             if (context.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
                 Logger.logError(LOG_TAG, "POST_NOTIFICATIONS permission not granted");
                 ResultReturner.returnData(apiReceiver, intent, out -> {
-                    out.beginObject().name("error").value("POST_NOTIFICATIONS permission not granted. Please grant notification permission in Android settings.").endObject();
+                    out.println("Error: POST_NOTIFICATIONS permission not granted. Please grant notification permission in Android settings.");
                 });
                 return;
             }
