@@ -61,6 +61,11 @@ public class LocationAPI {
                         locationToJson(lastKnownLocation, out);
                         break;
                     case REQUEST_ONCE:
+                        // Check if provider is available (#97)
+                        if (!manager.isProviderEnabled(provider)) {
+                            out.beginObject().name("API_ERROR").value("Provider '" + provider + "' is not enabled. Please turn on location services.").endObject();
+                            break;
+                        }
                         final long timeoutMs = intent.getLongExtra("timeout", 60000);
                         final Looper[] looper = new Looper[1];
                         Thread looperThread = new Thread(() -> {

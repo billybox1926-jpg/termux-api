@@ -536,6 +536,13 @@ public class DialogAPI {
                     editText.setHint(intent.getStringExtra("input_hint"));
                 }
 
+                // Ensure text is visible in dark theme (#505)
+                boolean darkTheme = ThemeUtils.shouldEnableDarkTheme(activity, NightMode.getAppNightMode().getName());
+                if (darkTheme) {
+                    editText.setTextColor(android.graphics.Color.WHITE);
+                    editText.setHintTextColor(android.graphics.Color.GRAY);
+                }
+
                 boolean multiLine = intent.getBooleanExtra("multiple_lines", false);
                 boolean numeric = intent.getBooleanExtra("numeric", false);
                 boolean password = intent.getBooleanExtra("password", false);

@@ -34,8 +34,9 @@ public class TextToSpeechAPI {
     }
 
     public static class TextToSpeechService extends IntentService {
-        TextToSpeech mTts;
+        static TextToSpeech mTts;
         final CountDownLatch mTtsLatch = new CountDownLatch(1);
+        static final Object ttsLock = new Object();
 
         private static final String LOG_TAG = "TextToSpeechService";
 
@@ -97,14 +98,27 @@ public class TextToSpeechAPI {
             }
             final int streamToUse = streamToUseInt;
 
-            mTts = new TextToSpeech(this, status -> {
-                if (status == TextToSpeech.SUCCESS) {
-                    mTtsLatch.countDown();
-                } else {
-                    Logger.logError(LOG_TAG, "Failed tts initialization: status=" + status);
-                    stopSelf();
+            synchronized (ttsLock) {
+                if (mTts != null) {
+                    mTts.shutdown();
                 }
-            }, speechEngine);
+                mTts = new TextToSpeech(this, status -> {
+                    if (status == TextToSpeech.SUCCESS) {
+                        // Set audio attributes for proper audio focus handling (#467)
+                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
+                            android.media.AudioAttributes audioAttributes = new android.media.AudioAttributes.Builder()
+                                    .setUsage(android.media.AudioAttributes.USAGE_ASSISTANT)
+                                    .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SPEECH)
+                                    .build();
+                            mTts.setAudioAttributes(audioAttributes);
+                        }
+                        mTtsLatch.countDown();
+                    } else {
+                        Logger.logError(LOG_TAG, "Failed tts initialization: status=" + status);
+                        stopSelf();
+                    }
+                }, speechEngine);
+            }
 
             ResultReturner.returnData(this, intent, new ResultReturner.WithInput() {
                 @Override
@@ -187,7 +201,13 @@ public class TextToSpeechAPI {
                             while ((line = reader.readLine()) != null) {
                                 if (!line.isEmpty()) {
                                     submittedUtterances++;
-                                    mTts.speak(line, TextToSpeech.QUEUE_ADD, params, utteranceId);
+                                    try {
+                                        mTts.speak(line, TextToSpeech.QUEUE_ADD, params, utteranceId);
+                                    } catch (Exception e) {
+                                        // TTS engine may crash when interrupted by other audio (#205)
+                                        Logger.logStackTraceWithMessage(LOG_TAG, "TTS speak error", e);
+                                        break;
+                                    }
                                 }
                             }
                         }

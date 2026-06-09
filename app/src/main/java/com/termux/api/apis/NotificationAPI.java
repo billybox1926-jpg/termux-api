@@ -59,12 +59,14 @@ public class NotificationAPI {
                 NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
 
                 if (!TextUtils.isEmpty(inputString)) {
-                    if (inputString.contains("\n")) {
+                    // Handle both real newlines and literal \n strings (#274)
+                    String displayText = inputString.replace("\\n", "\n");
+                    if (displayText.contains("\n")) {
                         NotificationCompat.BigTextStyle style = new NotificationCompat.BigTextStyle();
-                        style.bigText(inputString);
+                        style.bigText(displayText);
                         notification.setStyle(style);
                     } else {
-                        notification.setContentText(inputString);
+                        notification.setContentText(displayText);
                     }
                 }
 
@@ -85,6 +87,11 @@ public class NotificationAPI {
                                         .build());
                     } else {
                         channel.setSound(null, null);
+                    }
+                    // Enable LED on the channel if led-color is set (#218)
+                    if (ledColor != 0) {
+                        channel.enableLights(true);
+                        channel.setLightColor(ledColor);
                     }
                     manager.createNotificationChannel(channel);
                 }
@@ -215,6 +222,11 @@ public class NotificationAPI {
         notification.setOnlyAlertOnce(alertOnce);
         notification.setWhen(System.currentTimeMillis());
         notification.setShowWhen(true);
+
+        // Lockscreen visibility support (#92)
+        if (intent.getBooleanExtra("show_on_lock_screen", false)) {
+            notification.setVisibility(NotificationCompat.VISIBILITY_PUBLIC);
+        }
 
 
         String smallIconName = intent.getStringExtra("icon");
