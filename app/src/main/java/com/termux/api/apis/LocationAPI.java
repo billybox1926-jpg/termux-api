@@ -50,12 +50,14 @@ public class LocationAPI {
                     return;
                 }
 
+                final String locationProvider = provider;
+
                 String request = intent.getStringExtra("request");
                 if (request == null)
                     request = REQUEST_ONCE;
                 switch (request) {
                     case REQUEST_LAST_KNOWN:
-                        Location lastKnownLocation = manager.getLastKnownLocation(provider);
+                        Location lastKnownLocation = manager.getLastKnownLocation(locationProvider);
                         locationToJson(lastKnownLocation, out);
                         break;
                     case REQUEST_ONCE:
@@ -64,7 +66,7 @@ public class LocationAPI {
                         Thread looperThread = new Thread(() -> {
                             Looper.prepare();
                             looper[0] = Looper.myLooper();
-                            manager.requestSingleUpdate(provider, new LocationListener() {
+                            manager.requestSingleUpdate(locationProvider, new LocationListener() {
                                 @Override
                                 public void onStatusChanged(String changedProvider, int status, Bundle extras) {}
 
@@ -103,7 +105,7 @@ public class LocationAPI {
                         break;
                     case REQUEST_UPDATES:
                         Looper.prepare();
-                        manager.requestLocationUpdates(provider, 5000, 50.f, new LocationListener() {
+                        manager.requestLocationUpdates(locationProvider, 5000, 50.f, new LocationListener() {
 
                             @Override
                             public void onStatusChanged(String changedProvider, int status, Bundle extras) {
