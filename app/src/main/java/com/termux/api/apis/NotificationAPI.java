@@ -92,6 +92,16 @@ public class NotificationAPI {
                     if (channelVibrate != null) {
                         channel.setVibrationPattern(channelVibrate);
                     }
+                    // Only enable sound if explicitly requested (#319)
+                    boolean channelSound = intent.getBooleanExtra("sound", false);
+                    if (channelSound) {
+                        channel.setSound(Settings.System.DEFAULT_NOTIFICATION_URI,
+                                new android.media.AudioAttributes.Builder()
+                                        .setUsage(android.media.AudioAttributes.USAGE_NOTIFICATION)
+                                        .build());
+                    } else {
+                        channel.setSound(null, null);
+                    }
                     manager.createNotificationChannel(channel);
                 }
 

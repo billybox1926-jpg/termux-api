@@ -65,30 +65,35 @@ public class VolumeAPI {
      * Set volume for the specified audio stream
      */
     private static void setStreamVolume(Intent intent, AudioManager audioManager, int stream) {
-        int volume = intent.getIntExtra("volume", -1);
-        int maxVolume = audioManager.getStreamMaxVolume(stream);
-        int currentVolume = audioManager.getStreamVolume(stream);
+        try {
+            int volume = intent.getIntExtra("volume", -1);
+            int maxVolume = audioManager.getStreamMaxVolume(stream);
+            int currentVolume = audioManager.getStreamVolume(stream);
 
-        if (volume >= 0) {
-            // Absolute volume set
-            if (volume <= 0) {
-                volume = 0;
-            } else if (volume >= maxVolume) {
-                volume = maxVolume;
-            }
-            audioManager.setStreamVolume(stream, volume, 0);
-        } else {
-            // Check for relative volume adjustment (#592)
-            int relative = intent.getIntExtra("relative", Integer.MIN_VALUE);
-            if (relative != Integer.MIN_VALUE) {
-                int newVolume = currentVolume + relative;
-                if (newVolume < 0) {
-                    newVolume = 0;
-                } else if (newVolume > maxVolume) {
-                    newVolume = maxVolume;
+            if (volume >= 0) {
+                // Absolute volume set
+                if (volume <= 0) {
+                    volume = 0;
+                } else if (volume >= maxVolume) {
+                    volume = maxVolume;
                 }
-                audioManager.setStreamVolume(stream, newVolume, 0);
+                audioManager.setStreamVolume(stream, volume, 0);
+            } else {
+                // Check for relative volume adjustment (#592)
+                int relative = intent.getIntExtra("relative", Integer.MIN_VALUE);
+                if (relative != Integer.MIN_VALUE) {
+                    int newVolume = currentVolume + relative;
+                    if (newVolume < 0) {
+                        newVolume = 0;
+                    } else if (newVolume > maxVolume) {
+                        newVolume = maxVolume;
+                    }
+                    audioManager.setStreamVolume(stream, newVolume, 0);
+                }
             }
+        } catch (Exception e) {
+            // Some devices throw when setting ring volume in silent mode (#249)
+            Logger.logStackTraceWithMessage(LOG_TAG, "Failed to set volume", e);
         }
     }
 

@@ -36,11 +36,17 @@ public class ToastAPI {
                     Toast toast = Toast.makeText(context, inputString, durationExtra);
                     View toastView = toast.getView();
 
-                    Drawable background = toastView.getBackground();
-                    background.setTint(backgroundColor);
+                    if (toastView != null) {
+                        Drawable background = toastView.getBackground();
+                        if (background != null) {
+                            background.setTint(backgroundColor);
+                        }
 
-                    TextView textView = toastView.findViewById(android.R.id.message);
-                    textView.setTextColor(textColor);
+                        TextView textView = toastView.findViewById(android.R.id.message);
+                        if (textView != null) {
+                            textView.setTextColor(textColor);
+                        }
+                    }
 
                     toast.setGravity(gravity, 0, 0);
                     toast.show();

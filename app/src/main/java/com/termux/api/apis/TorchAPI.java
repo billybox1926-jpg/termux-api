@@ -41,6 +41,11 @@ public class TorchAPI {
     }
 
     private static void toggleTorch(Context context, boolean enabled) {
+        // Skip if state hasn't changed to avoid toggle issues on some devices (#201)
+        if (torchOn == enabled) {
+            Logger.logDebug(LOG_TAG, "Torch already " + (enabled ? "on" : "off") + ", skipping");
+            return;
+        }
         try {
             final CameraManager cameraManager = (CameraManager) context.getSystemService(Context.CAMERA_SERVICE);
             String torchCameraId = getTorchCameraId(cameraManager);

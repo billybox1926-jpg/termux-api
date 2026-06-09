@@ -100,6 +100,11 @@ public class MediaPlayerAPI {
             MediaCommandResult result = handler.handle(player, context, intent);
             postMediaCommandResult(context, intent, result);
 
+            // Stop service after single-shot commands like "info" (#877)
+            if ("info".equals(command)) {
+                stopSelf();
+            }
+
             return Service.START_NOT_STICKY;
         }
 
@@ -188,9 +193,16 @@ public class MediaPlayerAPI {
 
                 if (hasTrack) {
                     String status = player.isPlaying() ? "Playing" : "Paused";
-                    result.message = String.format("Status: %s\nTrack: %s\nCurrent Position: %s", status, trackName, getPlaybackPositionString(player));
+                    int duration = player.getDuration() / 1000;
+                    int position = player.getCurrentPosition() / 1000;
+                    StringBuilder sb = new StringBuilder();
+                    sb.append("{\n  \"status\": \"").append(status).append("\",");
+                    sb.append("\n  \"track\": \"").append(trackName.replace("\"", "\\\"")).append("\",");
+                    sb.append("\n  \"position\": ").append(position).append(",");
+                    sb.append("\n  \"duration\": ").append(duration).append("\n}");
+                    result.message = sb.toString();
                 } else {
-                    result.message = "No track currently!";
+                    result.message = "{\n  \"status\": \"No track\"\n}";
                 }
                 return result;
             }
