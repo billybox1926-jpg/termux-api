@@ -98,12 +98,14 @@ public class CameraPhotoAPI {
                 @Override
                 public void onDisconnected(CameraDevice camera) {
                     Logger.logInfo(LOG_TAG, "onDisconnected() from camera");
+                    stdout.println("Error: Camera disconnected");
                     closeCamera(camera, looper);
                 }
 
                 @Override
                 public void onError(CameraDevice camera, int error) {
                     Logger.logError(LOG_TAG, "Failed opening camera: " + error);
+                    stdout.println("Error: Failed to open camera (error " + error + ")");
                     closeCamera(camera, looper);
                 }
             }, null);
@@ -111,6 +113,7 @@ public class CameraPhotoAPI {
             Looper.loop();
         } catch (Exception e) {
             Logger.logStackTraceWithMessage(LOG_TAG, "Error getting camera", e);
+            stdout.println("Error: " + e.getMessage());
         }
     }
 
