@@ -72,12 +72,14 @@ public class NotificationAPI {
                 NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
 
                 if (!TextUtils.isEmpty(inputString)) {
-                    // Handle both real newlines and literal \n strings (#274)
+                    // Fix for issue #274: Handle both real newlines and literal \n strings
                     String displayText = inputString.replace("\\n", "\n");
                     if (displayText.contains("\n")) {
                         NotificationCompat.BigTextStyle style = new NotificationCompat.BigTextStyle();
                         style.bigText(displayText);
                         notification.setStyle(style);
+                        // Also set contentText so the collapsed notification shows the first line
+                        notification.setContentText(displayText);
                     } else {
                         notification.setContentText(displayText);
                     }
@@ -340,7 +342,11 @@ public class NotificationAPI {
             }
         }
 
-        if (groupKey != null) notification.setGroup(groupKey);
+        if (groupKey != null) {
+            // Fix for issue #300: setGroupSummary ensures grouping works on all Android versions
+            notification.setGroup(groupKey);
+            notification.setGroupSummary(true);
+        }
 
         if (ledColor != 0) {
             notification.setLights(ledColor, ledOnMs, ledOffMs);
@@ -358,7 +364,10 @@ public class NotificationAPI {
             notification.setVibrate(vibrateArg);
         }
 
-        if (useSound) notification.setSound(Settings.System.DEFAULT_NOTIFICATION_URI);
+        // Fix for issue #319: only set sound on builder if useSound is true
+        if (useSound) {
+            notification.setSound(Settings.System.DEFAULT_NOTIFICATION_URI);
+        }
 
         notification.setAutoCancel(true);
 

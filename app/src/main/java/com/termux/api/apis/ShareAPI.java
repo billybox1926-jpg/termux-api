@@ -31,7 +31,12 @@ public class ShareAPI {
         Logger.logDebug(LOG_TAG, "onReceive");
 
         final String fileExtra = intent.getStringExtra("file");
-        final String titleExtra = intent.getStringExtra("title");
+        // Fix for issue #322: Also check EXTRA_SUBJECT as an alternative title source,
+        // since the -t flag in the shell script may only pass the first word.
+        String titleExtra = intent.getStringExtra("title");
+        if (titleExtra == null)
+            titleExtra = intent.getStringExtra(Intent.EXTRA_SUBJECT);
+        final String finalTitleExtra = titleExtra;
         final String contentTypeExtra = intent.getStringExtra("content-type");
         final boolean defaultReceiverExtra = intent.getBooleanExtra("default-receiver", false);
         final String actionExtra = intent.getStringExtra("action");
@@ -72,7 +77,7 @@ public class ShareAPI {
                     sendIntent.putExtra(Intent.EXTRA_TEXT, inputString);
                     sendIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
 
-                    if (titleExtra != null) sendIntent.putExtra(Intent.EXTRA_SUBJECT, titleExtra);
+                    if (finalTitleExtra != null) sendIntent.putExtra(Intent.EXTRA_SUBJECT, finalTitleExtra);
                     sendIntent.setType(contentTypeExtra == null ? "text/plain" : contentTypeExtra);
 
                     context.startActivity(Intent.createChooser(sendIntent, context.getResources().getText(R.string.share_file_chooser_title)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
@@ -108,7 +113,7 @@ public class ShareAPI {
                     contentTypeToUse = contentTypeExtra;
                 }
 
-                if (titleExtra != null) sendIntent.putExtra(Intent.EXTRA_SUBJECT, titleExtra);
+                if (finalTitleExtra != null) sendIntent.putExtra(Intent.EXTRA_SUBJECT, finalTitleExtra);
 
                 if (Intent.ACTION_SEND.equals(finalIntentAction)) {
                     sendIntent.putExtra(Intent.EXTRA_STREAM, uriToShare);

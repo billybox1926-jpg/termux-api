@@ -39,6 +39,8 @@ public class SpeechToTextAPI {
 
         protected SpeechRecognizer mSpeechRecognizer;
         final LinkedBlockingQueue<String> queueu = new LinkedBlockingQueue<>();
+        // Fix for issue #616/#588: track whether speech has ended for timeout fallback
+        volatile boolean speechEnded = false;
 
         private static final String LOG_TAG = "SpeechToTextService";
 
@@ -59,6 +61,8 @@ public class SpeechToTextAPI {
 
                 @Override
                 public void onResults(Bundle results) {
+                    // Fix for issue #616/#588: cancel the timeout fallback since results arrived
+                    speechEnded = false;
                     List<String> recognitions = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
                     Logger.logError(LOG_TAG, "RecognitionListener#onResults(" + recognitions + ")");
                     queueu.addAll(recognitions);
@@ -102,13 +106,28 @@ public class SpeechToTextAPI {
                             description = Integer.toString(error);
                     }
                     Logger.logError(LOG_TAG, "RecognitionListener#onError(" + description + ")");
+                    // Fix for issue #616/#588: cancel timeout since error will stop recognition
+                    speechEnded = false;
                     queueu.add(STOP_ELEMENT);
                 }
 
                 @Override
                 public void onEndOfSpeech() {
                     Logger.logError(LOG_TAG, "RecognitionListener#onEndOfSpeech()");
-                    // Don't add STOP_ELEMENT here - wait for onResults which may contain final text (#288)
+                    // Fix for issue #616/#588: if onResults doesn't fire within 5 seconds of onEndOfSpeech,
+                    // stop the recognition gracefully with a timeout fallback
+                    speechEnded = true;
+                    new Thread(() -> {
+                        try {
+                            Thread.sleep(5000);
+                            if (speechEnded) {
+                                Logger.logError(LOG_TAG, "onEndOfSpeech timeout - forcing stop");
+                                queueu.add(STOP_ELEMENT);
+                            }
+                        } catch (InterruptedException e) {
+                            // Do nothing
+                        }
+                    }).start();
                 }
 
                 @Override

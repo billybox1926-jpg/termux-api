@@ -33,7 +33,9 @@ public class ToastAPI {
             @Override
             public void writeResult(PrintWriter out) {
                 handler.post(() -> {
-                    Toast toast = Toast.makeText(context, inputString, durationExtra);
+                    // Fix for issue #229: empty or null string will not show a toast, use a space instead
+                    String toastText = (inputString == null || inputString.isEmpty()) ? " " : inputString;
+                    Toast toast = Toast.makeText(context, toastText, durationExtra);
                     View toastView = toast.getView();
 
                     if (toastView != null) {

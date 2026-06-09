@@ -107,7 +107,9 @@ public class DialogAPI {
             } else {
                 InputResult result = new InputResult();
                 result.error = "Unknown Input Method: " + methodType;
+                // Fix for issue #557: call finish() after postResult to avoid hanging from shortcuts
                 postResult(context, result);
+                finish();
             }
         }
 
