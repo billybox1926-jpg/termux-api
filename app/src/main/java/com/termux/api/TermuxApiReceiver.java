@@ -283,7 +283,7 @@ public class TermuxApiReceiver extends BroadcastReceiver {
                 VolumeAPI.onReceive(this, context, intent);
                 break;
             case "MediaControl":
-                MediaControlAPI.onReceive(this, context, intent);
+                MediaControlAPI.onReceive(context, intent);
                 break;
             case "Wallpaper":
                 WallpaperAPI.onReceive(context, intent);
