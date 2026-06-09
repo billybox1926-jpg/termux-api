@@ -95,10 +95,35 @@ public class WallpaperAPI {
                 String contentUrl = url;
 
                 if (!contentUrl.startsWith("http://") && !contentUrl.startsWith("https://")) {
-                    contentUrl = "http://" + url;
+                    // Try HTTPS first, fall back to HTTP (needed for Android 9+ compatibility)
+                    contentUrl = "https://" + url;
                 }
-                HttpURLConnection connection = (HttpURLConnection) new URL(contentUrl).openConnection();
-                connection.connect();
+
+                HttpURLConnection connection = null;
+                try {
+                    connection = (HttpURLConnection) new URL(contentUrl).openConnection();
+                    connection.setConnectTimeout(15000);
+                    connection.setReadTimeout(30000);
+                    connection.connect();
+                } catch (Exception e) {
+                    // If HTTPS failed and we auto-prefixed, try HTTP as fallback
+                    if (contentUrl.startsWith("https://") && !url.startsWith("http://") && !url.startsWith("https://")) {
+                        Logger.logDebug(LOG_TAG, "HTTPS failed, trying HTTP: " + e.getMessage());
+                        contentUrl = "http://" + url;
+                        try {
+                            connection = (HttpURLConnection) new URL(contentUrl).openConnection();
+                            connection.setConnectTimeout(15000);
+                            connection.setReadTimeout(30000);
+                            connection.connect();
+                        } catch (Exception e2) {
+                            wallpaperResult.error = "Unknown host!";
+                            return wallpaperResult;
+                        }
+                    } else {
+                        wallpaperResult.error = "Unknown host!";
+                        return wallpaperResult;
+                    }
+                }
 
                 String contentType = "" + connection.getHeaderField("Content-Type");
 
