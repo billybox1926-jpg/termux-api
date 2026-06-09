@@ -5,12 +5,14 @@ import android.content.ClipData.Item;
 import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.Intent;
+import android.net.Uri;
 import android.text.TextUtils;
 
 import com.termux.api.TermuxApiReceiver;
 import com.termux.api.util.ResultReturner;
 import com.termux.shared.logger.Logger;
 
+import java.io.File;
 import java.io.PrintWriter;
 
 public class ClipboardAPI {
@@ -22,6 +24,27 @@ public class ClipboardAPI {
 
         final ClipboardManager clipboard = (ClipboardManager) context.getSystemService(Context.CLIPBOARD_SERVICE);
         final ClipData clipData = clipboard.getPrimaryClip();
+
+        // Support copying image files to clipboard (#705)
+        String imagePath = intent.getStringExtra("image-path");
+        if (imagePath != null) {
+            ResultReturner.returnData(apiReceiver, intent, out -> {
+                try {
+                    File imageFile = new File(imagePath);
+                    if (!imageFile.exists()) {
+                        out.println("Error: Image file does not exist: " + imagePath);
+                        return;
+                    }
+                    Uri imageUri = Uri.fromFile(imageFile);
+                    ClipData imageClip = ClipData.newUri(context.getContentResolver(), "image", imageUri);
+                    clipboard.setPrimaryClip(imageClip);
+                } catch (Exception e) {
+                    out.println("Error copying image to clipboard: " + e.getMessage());
+                    Logger.logStackTraceWithMessage(LOG_TAG, "Error copying image to clipboard", e);
+                }
+            });
+            return;
+        }
 
         boolean version2 = "2".equals(intent.getStringExtra("api_version"));
         if (version2) {
