@@ -201,8 +201,10 @@ public abstract class ResultReturner {
     @SuppressLint("SdCardPath")
     public static LocalSocketAddress getApiLocalSocketAddress(@NonNull Context context,
                                                               @NonNull String socketLabel, @NonNull String socketAddress) {
+        // Fix for issue #842: use passed context if ResultReturner.context is null
+        Context appContext = ResultReturner.context != null ? ResultReturner.context : context;
         if (socketAddress.startsWith("/")) {
-            ApplicationInfo termuxApplicationInfo = PackageUtils.getApplicationInfoForPackage(context,
+            ApplicationInfo termuxApplicationInfo = PackageUtils.getApplicationInfoForPackage(appContext,
                     TermuxConstants.TERMUX_PACKAGE_NAME);
             if (termuxApplicationInfo == null) {
                 throw new RuntimeException("Failed to get ApplicationInfo for the Termux app package: " +
@@ -330,8 +332,11 @@ public abstract class ResultReturner {
                     t.addSuppressed(callerStackTrace);
                 Logger.logStackTraceWithMessage(LOG_TAG, message, t);
 
-                TermuxPluginUtils.sendPluginCommandErrorNotification(ResultReturner.context, LOG_TAG,
-                        TermuxConstants.TERMUX_API_APP_NAME + " Error", message, t);
+                // Fix for issue #842: skip notification if ResultReturner.context is null (app not fully initialized)
+                if (ResultReturner.context != null) {
+                    TermuxPluginUtils.sendPluginCommandErrorNotification(ResultReturner.context, LOG_TAG,
+                            TermuxConstants.TERMUX_API_APP_NAME + " Error", message, t);
+                }
 
                 if (asyncResult != null && receiver != null && receiver.isOrderedBroadcast()) {
                     asyncResult.setResultCode(1);
