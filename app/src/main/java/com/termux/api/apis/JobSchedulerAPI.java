@@ -73,6 +73,7 @@ public class JobSchedulerAPI {
         final boolean pending = intent.getBooleanExtra("pending", false);
         final boolean cancel = intent.getBooleanExtra("cancel", false);
         final boolean cancelAll = intent.getBooleanExtra("cancel_all", false);
+        final String cronExpr = intent.getStringExtra("cron");
 
         if (pending) {
             ResultReturner.returnData(apiReceiver, intent, out -> {
@@ -88,9 +89,26 @@ public class JobSchedulerAPI {
             });
         } else {
             ResultReturner.returnData(apiReceiver, intent, out -> {
-                runScheduleJobAction(context, intent, out);
+                if (cronExpr != null && !cronExpr.isEmpty()) handleCron(context, intent, out, cronExpr);
+                else runScheduleJobAction(context, intent, out);
             });
         }
+    }
+
+    private static void handleCron(Context ctx, Intent intent, PrintWriter out, String cron) {
+        try {
+            String[] p = cron.trim().split("\\s+");
+            if (p.length < 5) { out.println("Error: cron needs 5 fields"); return; }
+            long ms = -1;
+            if (p[0].startsWith("*/") && "*".equals(p[1])) ms = Long.parseLong(p[0].substring(2)) * 60000L;
+            else if (p[1].startsWith("*/") && "0".equals(p[0])) ms = Long.parseLong(p[1].substring(2)) * 3600000L;
+            else if ("*".equals(p[0]) && "*".equals(p[1])) ms = 60000L;
+            else if ("0".equals(p[0]) && "*".equals(p[1])) ms = 3600000L;
+            else if ("0".equals(p[0]) && "0".equals(p[1])) ms = 86400000L;
+            if (ms <= 0) { out.println("Error: cannot parse cron"); return; }
+            intent.putExtra("period_ms", (int) Math.min(ms, Integer.MAX_VALUE));
+            runScheduleJobAction(ctx, intent, out);
+        } catch (Exception e) { out.println("Error: " + e.getMessage()); }
     }
 
     private static void runScheduleJobAction(Context context, Intent intent, PrintWriter out) {

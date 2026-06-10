@@ -26,6 +26,8 @@ public class MediaControlAPI {
     private static final String ACTION_NEXT = "next";
     private static final String ACTION_PREVIOUS = "previous";
     private static final String ACTION_STOP = "stop";
+    private static final String ACTION_REWIND = "rewind";
+    private static final String ACTION_FAST_FORWARD = "fast-forward";
 
     public static void onReceive(final Context context, final Intent intent) {
         Logger.logDebug(LOG_TAG, "onReceive");
@@ -53,6 +55,12 @@ public class MediaControlAPI {
                 break;
             case ACTION_STOP:
                 keyCode = KeyEvent.KEYCODE_MEDIA_STOP;
+                break;
+            case ACTION_REWIND:
+                keyCode = KeyEvent.KEYCODE_MEDIA_REWIND;
+                break;
+            case ACTION_FAST_FORWARD:
+                keyCode = KeyEvent.KEYCODE_MEDIA_FAST_FORWARD;
                 break;
             default:
                 ResultReturner.returnData(context, intent, out -> out.append("Unknown action: " + action + "\n"));

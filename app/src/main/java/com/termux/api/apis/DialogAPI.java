@@ -242,6 +242,10 @@ public class DialogAPI {
                         return new TextInputMethod(activity);
                     case "time":
                         return new TimeInputMethod(activity);
+                    case "multiselect":
+                        return new MultiSelectInputMethod(activity);
+                    case "daterange":
+                        return new DateRangeInputMethod(activity);
                     default:
                         return null;
                 }
@@ -1096,6 +1100,44 @@ public class DialogAPI {
                 }
                 return inputResult;
             }
+        }
+    }
+
+    // Fix for issue #462: MultiSelect
+    static class MultiSelectInputMethod extends InputDialog<LinearLayout> {
+        MultiSelectInputMethod(AppCompatActivity a) { super(a); }
+        @Override LinearLayout createWidgetView(AppCompatActivity a) {
+            LinearLayout l = new LinearLayout(a); l.setOrientation(LinearLayout.VERTICAL);
+            for (int j = 0; j < getInputValues(a.getIntent()).length; j++) {
+                CheckBox c = new CheckBox(a); c.setText(getInputValues(a.getIntent())[j]); c.setId(j);
+                c.setTextSize(18); c.setPadding(16,16,16,16); l.addView(c);
+            } return l;
+        }
+        @Override String getResult() {
+            int n = widgetView.getChildCount(); List<Value> vs = new ArrayList<>(); StringBuilder sb = new StringBuilder("{");
+            for (int j = 0; j < n; j++) { CheckBox b = widgetView.findViewById(j);
+                if (b.isChecked()) { Value v = new Value(); v.index=j; v.text=b.getText().toString(); vs.add(v);
+                    sb.append("\"").append(j).append("\":\"").append(b.getText()).append("\",");
+                }
+            } inputResult.values = vs; String r = sb.toString(); return (r.endsWith(",") ? r.substring(0,r.length()-1) : r) + "}";
+        }
+    }
+
+    // Fix for issue #462: DateRange
+    static class DateRangeInputMethod extends InputDialog<LinearLayout> {
+        DateRangeInputMethod(AppCompatActivity a) { super(a); }
+        @Override LinearLayout createWidgetView(AppCompatActivity a) {
+            LinearLayout l = new LinearLayout(a); l.setOrientation(LinearLayout.VERTICAL);
+            TextView sl = new TextView(a); sl.setText("Start:"); sl.setPadding(16,16,16,8); l.addView(sl);
+            DatePicker s = new DatePicker(a); s.setId(100); l.addView(s);
+            TextView el = new TextView(a); el.setText("End:"); el.setPadding(16,16,16,8); l.addView(el);
+            DatePicker e = new DatePicker(a); e.setId(101); l.addView(e);
+            return l;
+        }
+        @Override String getResult() {
+            DatePicker s = widgetView.findViewById(100), e = widgetView.findViewById(101);
+            return String.format("{\"start\":\"%04d-%02d-%02d\",\"end\":\"%04d-%02d-%02d\"}",
+                s.getYear(), s.getMonth()+1, s.getDayOfMonth(), e.getYear(), e.getMonth()+1, e.getDayOfMonth());
         }
     }
 
