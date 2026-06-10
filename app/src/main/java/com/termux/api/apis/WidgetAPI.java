@@ -89,13 +89,13 @@ public class WidgetAPI {
             super.onCreate(savedInstanceState);
             done = true;
 
-            String updateText = getIntent().getStringExtra("text");
-            if (updateText == null) updateText = "Termux:API";
+            final String updateText = getIntent().getStringExtra("text");
+            String displayText = updateText != null ? updateText : "Termux:API";
             int widgetId = getIntent().getIntExtra("widget_id", AppWidgetManager.INVALID_APPWIDGET_ID);
 
             if (widgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
                 RemoteViews views = new RemoteViews(getPackageName(), R.layout.widget_text);
-                views.setTextViewText(R.id.widget_text, updateText);
+                views.setTextViewText(R.id.widget_text, displayText);
                 AppWidgetManager.getInstance(this).updateAppWidget(widgetId, views);
 
                 Intent resultValue = new Intent();
@@ -104,7 +104,7 @@ public class WidgetAPI {
             }
 
             ResultReturner.returnData(this, getIntent(), out ->
-                    out.println("Widget updated: " + updateText));
+                    out.println("Widget updated: " + displayText));
             finishAndRemoveTask();
         }
 
