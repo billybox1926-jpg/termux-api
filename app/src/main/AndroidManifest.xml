@@ -169,7 +169,7 @@
 
 
         <receiver android:name=".TermuxApiReceiver"
-            android:exported="false" />
+            android:exported="true" />
 
         <receiver
             android:name="${TERMUX_PACKAGE_NAME}.shared.activities.ReportActivity$ReportActivityBroadcastReceiver"
