@@ -23,6 +23,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * API for Bluetooth Low Energy (BLE) scanning.
@@ -91,15 +92,18 @@ public class BleAPI {
 
                 final List<ScanResult> results = new ArrayList<>();
                 final CountDownLatch latch = new CountDownLatch(1);
+                final AtomicBoolean scanFailed = new AtomicBoolean(false);
 
                 ScanCallback callback = new ScanCallback() {
                     @Override
                     public void onScanResult(int callbackType, ScanResult result) {
                         results.add(result);
                     }
+
                     @Override
                     public void onScanFailed(int errorCode) {
                         Logger.logError(LOG_TAG, "BLE scan failed: " + errorCode);
+                        scanFailed.set(true);
                         latch.countDown();
                     }
                 };
@@ -121,15 +125,22 @@ public class BleAPI {
                 try {
                     scanner.startScan(filters, settings, callback);
                     latch.await(timeoutMs, TimeUnit.MILLISECONDS);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
                 } catch (SecurityException e) {
                     out.beginObject().name("error").value("Permission denied: " + e.getMessage()).endObject();
+                    return;
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    out.beginObject().name("error").value("Scan interrupted").endObject();
                     return;
                 } finally {
                     try {
                         scanner.stopScan(callback);
                     } catch (Exception ignored) {}
+                }
+
+                if (scanFailed.get()) {
+                    out.beginObject().name("error").value("Scan failed").endObject();
+                    return;
                 }
 
                 out.beginArray();
