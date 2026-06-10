@@ -5,11 +5,13 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
+import android.util.JsonWriter;
 import android.widget.RemoteViews;
 
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.termux.api.R;
 import com.termux.api.TermuxApiReceiver;
 import com.termux.api.util.ResultReturner;
 import com.termux.shared.logger.Logger;
@@ -57,8 +59,9 @@ public class WidgetAPI {
     }
 
     private static void widgetInfo(TermuxApiReceiver apiReceiver, final Context context, final Intent intent) {
-        ResultReturner.returnData(apiReceiver, intent, out -> {
-            try {
+        ResultReturner.returnData(apiReceiver, intent, new ResultReturner.ResultJsonWriter() {
+            @Override
+            public void writeJson(JsonWriter out) throws Exception {
                 AppWidgetManager awm = AppWidgetManager.getInstance(context);
                 ComponentName provider = new ComponentName(context, TextWidgetProvider.class);
                 int[] ids = awm.getAppWidgetIds(provider);
@@ -71,8 +74,6 @@ public class WidgetAPI {
                 }
                 out.endArray();
                 out.endObject();
-            } catch (Exception e) {
-                out.beginObject().name("error").value(e.getMessage()).endObject();
             }
         });
     }

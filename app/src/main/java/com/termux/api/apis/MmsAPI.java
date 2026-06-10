@@ -7,7 +7,7 @@ import android.os.Build;
 import android.telephony.SmsManager;
 import android.telephony.SubscriptionManager;
 import android.telephony.SubscriptionInfo;
-import android.util.Base64;
+import android.util.JsonWriter;
 
 import androidx.annotation.RequiresApi;
 import androidx.annotation.RequiresPermission;
@@ -112,24 +112,27 @@ public class MmsAPI {
     }
 
     private static void mmsInfo(TermuxApiReceiver apiReceiver, final Context context, final Intent intent) {
-        ResultReturner.returnData(apiReceiver, intent, out -> {
-            out.beginObject();
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP_MR1) {
-                SubscriptionManager sm = (SubscriptionManager) context.getSystemService(Context.TELEPHONY_SUBSCRIPTION_SERVICE);
-                if (sm != null) {
-                    out.name("subscriptions");
-                    out.beginArray();
-                    for (SubscriptionInfo info : sm.getActiveSubscriptionInfoList()) {
-                        out.beginObject();
-                        out.name("id").value(info.getSubscriptionId());
-                        out.name("carrier").value(info.getCarrierName());
-                        out.name("number").value(info.getNumber());
-                        out.endObject();
+        ResultReturner.returnData(apiReceiver, intent, new ResultReturner.ResultJsonWriter() {
+            @Override
+            public void writeJson(android.util.JsonWriter out) throws Exception {
+                out.beginObject();
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP_MR1) {
+                    SubscriptionManager sm = (SubscriptionManager) context.getSystemService(Context.TELEPHONY_SUBSCRIPTION_SERVICE);
+                    if (sm != null) {
+                        out.name("subscriptions");
+                        out.beginArray();
+                        for (SubscriptionInfo info : sm.getActiveSubscriptionInfoList()) {
+                            out.beginObject();
+                            out.name("id").value(info.getSubscriptionId());
+                            out.name("carrier").value(info.getCarrierName());
+                            out.name("number").value(info.getNumber());
+                            out.endObject();
+                        }
+                        out.endArray();
                     }
-                    out.endArray();
                 }
+                out.endObject();
             }
-            out.endObject();
         });
     }
 }

@@ -66,8 +66,7 @@ public class FitnessAPI {
                         Sensor.TYPE_STEP_DETECTOR,
                         Sensor.TYPE_HEART_RATE,
                         Sensor.TYPE_HEART_BEAT,
-                        Sensor.TYPE_AMBIENT_TEMPERATURE,
-                        Sensor.TYPE_BODY_TEMPERATURE
+                        Sensor.TYPE_AMBIENT_TEMPERATURE
                 };
 
                 out.beginArray();
@@ -115,7 +114,6 @@ public class FitnessAPI {
                     case "heart_rate": type = Sensor.TYPE_HEART_RATE; break;
                     case "heart_beat": type = Sensor.TYPE_HEART_BEAT; break;
                     case "ambient_temperature": type = Sensor.TYPE_AMBIENT_TEMPERATURE; break;
-                    case "body_temperature": type = Sensor.TYPE_BODY_TEMPERATURE; break;
                     default:
                         out.beginObject().name("error").value("Unknown sensor type: " + sensorType).endObject();
                         return;
@@ -174,7 +172,6 @@ public class FitnessAPI {
             case Sensor.TYPE_HEART_RATE: return "heart_rate";
             case Sensor.TYPE_HEART_BEAT: return "heart_beat";
             case Sensor.TYPE_AMBIENT_TEMPERATURE: return "ambient_temperature";
-            case Sensor.TYPE_BODY_TEMPERATURE: return "body_temperature";
             default: return "unknown(" + type + ")";
         }
     }

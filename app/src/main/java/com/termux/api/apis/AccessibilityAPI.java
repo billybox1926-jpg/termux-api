@@ -119,7 +119,7 @@ public class AccessibilityAPI {
         /**
          * Perform a global action (back, home, recents, etc.).
          */
-        public static boolean performGlobalAction(int action) {
+        public static boolean performGlobalActionStatic(int action) {
             if (instance == null) return false;
             return instance.performGlobalAction(action);
         }

@@ -2,8 +2,8 @@ package com.termux.api.apis;
 
 import android.content.Context;
 import android.content.Intent;
-import android.nsd.NsdManager;
-import android.nsd.NsdServiceInfo;
+import android.net.nsd.NsdManager;
+import android.net.nsd.NsdServiceInfo;
 import android.os.Build;
 import android.util.JsonWriter;
 

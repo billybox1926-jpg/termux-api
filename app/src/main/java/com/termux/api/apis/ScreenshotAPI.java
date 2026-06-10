@@ -11,6 +11,7 @@ import android.media.ImageReader;
 import android.media.projection.MediaProjection;
 import android.os.Build;
 import android.os.Environment;
+import android.util.DisplayMetrics;
 import android.util.JsonWriter;
 
 import androidx.annotation.RequiresApi;

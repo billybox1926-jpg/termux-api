@@ -43,6 +43,7 @@ public class SpeechToTextAPI {
         volatile boolean speechEnded = false;
 
         private static final String LOG_TAG = "SpeechToTextService";
+        private String mSpeechLanguage = "en-US";
 
         @Override
         public void onCreate() {
@@ -165,8 +166,7 @@ public class SpeechToTextAPI {
             recognizerIntent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
             recognizerIntent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 10);
             // Fix for issue #437: support configurable language
-            String language = mIntent.getStringExtra("language");
-            recognizerIntent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, language != null ? language : "en-US");
+            recognizerIntent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, mSpeechLanguage);
             recognizerIntent.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true);
             mSpeechRecognizer.startListening(recognizerIntent);
         }
@@ -182,6 +182,12 @@ public class SpeechToTextAPI {
         @Override
         protected void onHandleIntent(final Intent intent) {
             Logger.logDebug(LOG_TAG, "onHandleIntent:\n" + IntentUtils.getIntentString(intent));
+
+            // Fix for issue #437: support configurable language
+            String language = intent.getStringExtra("language");
+            if (language != null && !language.isEmpty()) {
+                mSpeechLanguage = language;
+            }
 
             ResultReturner.returnData(this, intent, new ResultReturner.WithInput() {
                 @Override

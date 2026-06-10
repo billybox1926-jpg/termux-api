@@ -97,10 +97,10 @@ public class DialogAPI {
 
             // Fix for issue #297: support dark mode flag from client
             String darkModeExtra = intent.getStringExtra("dark_mode");
-            if ("true".equals(darkModeExtra) || "yes".equals(darkModeExtra)) {
-                TermuxThemeUtils.setAppNightMode(context, NightMode.NIGHT_MODE_TRUE);
-            } else if ("false".equals(darkModeExtra) || "no".equals(darkModeExtra)) {
-                TermuxThemeUtils.setAppNightMode(context, NightMode.NIGHT_MODE_FALSE);
+            if ("true".equals(darkModeExtra) || "yes".equals(darkModeExtra) || "1".equals(darkModeExtra)) {
+                TermuxThemeUtils.setAppNightMode(context, "true");
+            } else if ("false".equals(darkModeExtra) || "no".equals(darkModeExtra) || "0".equals(darkModeExtra)) {
+                TermuxThemeUtils.setAppNightMode(context, "false");
             }
 
             boolean shouldEnableDarkTheme = ThemeUtils.shouldEnableDarkTheme(this, NightMode.getAppNightMode().getName());
