@@ -6,6 +6,7 @@ android {
     compileSdk project.properties.compileSdkVersion.toInteger()
     def appVersionName = System.getenv("TERMUX_API_APP__BUILD__APP_VERSION_NAME") ?: ""
     def apkVersionTag = System.getenv("TERMUX_API_APP__BUILD__APK_VERSION_TAG") ?: ""
+    def customDebugKeystore = System.getenv("DEBUG_KEYSTORE")
 
     defaultConfig {
         applicationId "com.termux.api"
@@ -23,11 +24,13 @@ android {
     }
 
     signingConfigs {
-        debug {
-            storeFile file(System.getenv("DEBUG_KEYSTORE") ?: "debug.keystore")
-            keyAlias System.getenv("DEBUG_KEY_ALIAS") ?: "androiddebugkey"
-            storePassword System.getenv("DEBUG_KEYSTORE_PASSWORD") ?: "android"
-            keyPassword System.getenv("DEBUG_KEY_PASSWORD") ?: "android"
+        customDebug {
+            if (customDebugKeystore) {
+                storeFile file(customDebugKeystore)
+                keyAlias System.getenv("DEBUG_KEY_ALIAS")
+                storePassword System.getenv("DEBUG_KEYSTORE_PASSWORD")
+                keyPassword System.getenv("DEBUG_KEY_PASSWORD")
+            }
         }
     }
 
@@ -39,7 +42,7 @@ android {
         }
 
         debug {
-            signingConfig signingConfigs.debug
+            if (customDebugKeystore) signingConfig signingConfigs.customDebug
             applicationIdSuffix ".debug"
             manifestPlaceholders.TERMUX_PACKAGE_NAME = "com.termux.api.debug"
         }
@@ -68,7 +71,7 @@ android {
 }
 
 dependencies {
-    coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:1.1.5"
+    coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:2.0.4"
 
     implementation "com.google.android.material:material:1.12.0"
     implementation "androidx.biometric:biometric:1.2.0-alpha05"
