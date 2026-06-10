@@ -26,7 +26,7 @@ jobs:
           java-version: '17'  # Adjust to your project's requirement
 
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v3
+        uses: gradle/actions/setup-gradle@v6
 
       - name: Build Debug APK
         shell: bash
