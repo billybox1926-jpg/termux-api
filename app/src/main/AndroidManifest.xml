@@ -39,6 +39,7 @@
     <uses-permission android:name="android.permission.DUMP" tools:ignore="ProtectedPermissions" />
     <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" tools:ignore="ProtectedPermissions" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.SET_ALARM" />
 
     <!-- This permission is not used, but a permission is needed on the sharedfiles contentprovider,
          which will always use FLAG_GRANT_READ_URI_PERMISSION. -->
@@ -143,6 +144,13 @@
             android:excludeFromRecents="true"
             android:exported="false" />
 
+        <!-- Fix for issue #530: blocking share activity -->
+        <activity android:name=".apis.ShareAPI$BlockingShareActivity"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:noHistory="true"
+            android:excludeFromRecents="true"
+            android:exported="false" />
+
         <activity android:name=".apis.StorageGetAPI$StorageActivity"
             android:theme="@android:style/Theme.Translucent.NoTitleBar"
             android:excludeFromRecents="true"
@@ -170,6 +178,10 @@
 
         <receiver android:name=".TermuxApiReceiver"
             android:exported="true" />
+
+        <!-- Fix for issue #305: AlarmManager alarm receiver -->
+        <receiver android:name=".apis.AlarmManagerAPI$AlarmReceiver"
+            android:exported="false" />
 
         <receiver
             android:name="${TERMUX_PACKAGE_NAME}.shared.activities.ReportActivity$ReportActivityBroadcastReceiver"

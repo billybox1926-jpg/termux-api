@@ -167,6 +167,12 @@ public class SAFAPI {
             case "statURI":
                 statURI(apiReceiver, context, intent);
                 break;
+            case "realPath":
+                realPath(apiReceiver, context, intent);
+                break;
+            case "realName":
+                realName(apiReceiver, context, intent);
+                break;
             default:
                 Logger.logError(LOG_TAG, "Unrecognized safmethod: " + "'" + method + "'");
         }
@@ -296,6 +302,92 @@ public class SAFAPI {
                 statDocument(out, context, Uri.parse(docUri.toString()));
             }
         });
+    }
+
+    // Fix for issue #498: resolve SAF URI to real filesystem path
+    private static void realPath(TermuxApiReceiver apiReceiver, Context context, Intent intent) {
+        String uriString = intent.getStringExtra("uri");
+        if (uriString == null) {
+            Logger.logError(LOG_TAG, "uri extra null");
+            return;
+        }
+        ResultReturner.returnData(apiReceiver, intent, out -> {
+            String realPath = getRealPathFromURI(context, Uri.parse(uriString));
+            if (realPath != null) {
+                out.println(realPath);
+            } else {
+                out.println("");
+            }
+        });
+    }
+
+    // Fix for issue #498: get the real file name from a SAF URI
+    private static void realName(TermuxApiReceiver apiReceiver, Context context, Intent intent) {
+        String uriString = intent.getStringExtra("uri");
+        if (uriString == null) {
+            Logger.logError(LOG_TAG, "uri extra null");
+            return;
+        }
+        ResultReturner.returnData(apiReceiver, intent, out -> {
+            String realName = getRealNameFromURI(context, Uri.parse(uriString));
+            if (realName != null) {
+                out.println(realName);
+            } else {
+                out.println("");
+            }
+        });
+    }
+
+    /**
+     * Attempt to resolve a SAF URI to a real filesystem path.
+     * Uses DocumentsContract.getTreeDocumentId() to extract the document ID,
+     * then tries to map known storage prefixes to filesystem paths.
+     * Returns null if the path cannot be resolved.
+     */
+    private static String getRealPathFromURI(Context context, Uri uri) {
+        try {
+            String documentId = DocumentsContract.getTreeDocumentId(uri);
+            // Handle primary storage: "primary:path/to/file"
+            if (documentId.contains(":")) {
+                String[] split = documentId.split(":", 2);
+                String type = split[0];
+                String path = split[1];
+                if ("primary".equalsIgnoreCase(type)) {
+                    return "/storage/emulated/0/" + path;
+                } else {
+                    // External SD card or other storage
+                    return "/storage/" + type + "/" + path;
+                }
+            }
+            // For non-tree URIs, try to query the display name
+            try (Cursor c = context.getContentResolver().query(uri,
+                    new String[]{DocumentsContract.Document.COLUMN_DISPLAY_NAME}, null, null, null)) {
+                if (c != null && c.moveToFirst()) {
+                    return c.getString(0);
+                }
+            }
+        } catch (Exception e) {
+            Logger.logStackTraceWithMessage(LOG_TAG, "Failed to resolve real path for " + uri, e);
+        }
+        return null;
+    }
+
+    /**
+     * Get the real file name from a SAF URI by querying the document metadata.
+     */
+    private static String getRealNameFromURI(Context context, Uri uri) {
+        try (Cursor c = context.getContentResolver().query(uri,
+                new String[]{DocumentsContract.Document.COLUMN_DISPLAY_NAME}, null, null, null)) {
+            if (c != null && c.moveToFirst()) {
+                int idx = c.getColumnIndex(DocumentsContract.Document.COLUMN_DISPLAY_NAME);
+                if (idx >= 0) {
+                    return c.getString(idx);
+                }
+            }
+        } catch (Exception e) {
+            Logger.logStackTraceWithMessage(LOG_TAG, "Failed to get real name for " + uri, e);
+        }
+        return null;
     }
 
 
