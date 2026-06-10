@@ -64,6 +64,17 @@ public class KeystoreAPI {
             case "verify":
                 verifyData(apiReceiver, intent);
                 break;
+            // Fix for issue #550: encrypt/decrypt
+            case "encrypt":
+                encryptData(apiReceiver, intent);
+                break;
+            case "decrypt":
+                decryptData(apiReceiver, intent);
+                break;
+            // Fix for issue #287: import existing keys
+            case "import":
+                importKey(apiReceiver, intent);
+                break;
         }
     }
 
@@ -299,6 +310,97 @@ public class KeystoreAPI {
                 boolean verified = signature.verify(signatureData);
 
                 out.println(verified);
+            }
+        });
+    }
+
+    // Fix for issue #550: encrypt data with keystore key
+    private static void encryptData(TermuxApiReceiver apiReceiver, final Intent intent) {
+        ResultReturner.returnData(apiReceiver, intent, new WithInput() {
+            @Override
+            public void writeResult(PrintWriter out) throws Exception {
+                String alias = intent.getStringExtra("alias");
+                if (alias == null) { out.println("ERROR: alias required"); return; }
+
+                KeyStore ks = getKeyStore();
+                java.security.Key key = ks.getKey(alias, null);
+                if (key == null) { out.println("ERROR: key not found: " + alias); return; }
+
+                byte[] input = readStream(in);
+                String transformation = intent.getStringExtra("transformation");
+                if (transformation == null) transformation = "RSA/ECB/PKCS1Padding";
+
+                javax.crypto.Cipher cipher = javax.crypto.Cipher.getInstance(transformation);
+                cipher.init(javax.crypto.Cipher.ENCRYPT_MODE, key);
+                byte[] encrypted = cipher.doFinal(input);
+                out.println(android.util.Base64.encodeToString(encrypted, android.util.Base64.NO_WRAP));
+            }
+        });
+    }
+
+    // Fix for issue #550: decrypt data with keystore key
+    private static void decryptData(TermuxApiReceiver apiReceiver, final Intent intent) {
+        ResultReturner.returnData(apiReceiver, intent, new WithInput() {
+            @Override
+            public void writeResult(PrintWriter out) throws Exception {
+                String alias = intent.getStringExtra("alias");
+                if (alias == null) { out.println("ERROR: alias required"); return; }
+
+                KeyStore ks = getKeyStore();
+                java.security.Key key = ks.getKey(alias, null);
+                if (key == null) { out.println("ERROR: key not found: " + alias); return; }
+
+                byte[] input = readStream(in);
+                String transformation = intent.getStringExtra("transformation");
+                if (transformation == null) transformation = "RSA/ECB/PKCS1Padding";
+
+                javax.crypto.Cipher cipher = javax.crypto.Cipher.getInstance(transformation);
+                cipher.init(javax.crypto.Cipher.DECRYPT_MODE, key);
+                byte[] decrypted = cipher.doFinal(input);
+                out.println(android.util.Base64.encodeToString(decrypted, android.util.Base64.NO_WRAP));
+            }
+        });
+    }
+
+    // Fix for issue #287: import existing key from PEM/DER
+    private static void importKey(TermuxApiReceiver apiReceiver, final Intent intent) {
+        ResultReturner.returnData(apiReceiver, intent, new WithInput() {
+            @Override
+            public void writeResult(PrintWriter out) throws Exception {
+                String alias = intent.getStringExtra("alias");
+                if (alias == null) { out.println("ERROR: alias required"); return; }
+
+                byte[] keyData = readStream(in);
+                String format = intent.getStringExtra("format");
+                if (format == null) format = "PKCS12";
+
+                java.security.KeyStore ks = getKeyStore();
+                char[] password = intent.getStringExtra("password") != null ?
+                        intent.getStringExtra("password").toCharArray() : "".toCharArray();
+
+                if ("PKCS12".equalsIgnoreCase(format) || "p12".equalsIgnoreCase(format)) {
+                    java.security.KeyStore importStore = java.security.KeyStore.getInstance("PKCS12");
+                    importStore.load(new java.io.ByteArrayInputStream(keyData), password);
+                    String entryAlias = importStore.aliases().nextElement();
+                    java.security.KeyStore.Entry entry = importStore.getEntry(entryAlias,
+                            new java.security.KeyStore.PasswordProtection(password));
+                    ks.setEntry(alias, entry, new java.security.KeyStore.PasswordProtection(password));
+                } else if ("PEM".equalsIgnoreCase(format) || "pem".equalsIgnoreCase(format)) {
+                    // Parse PEM and import
+                    String pem = new String(keyData);
+                    pem = pem.replace("-----BEGIN PRIVATE KEY-----", "")
+                            .replace("-----END PRIVATE KEY-----", "")
+                            .replaceAll("\\s", "");
+                    byte[] der = android.util.Base64.decode(pem, android.util.Base64.DEFAULT);
+                    java.security.spec.PKCS8EncodedKeySpec spec = new java.security.spec.PKCS8EncodedKeySpec(der);
+                    java.security.KeyFactory kf = java.security.KeyFactory.getInstance("RSA");
+                    java.security.PrivateKey pk = kf.generatePrivate(spec);
+                    ks.setKeyEntry(alias, pk, password, null);
+                } else {
+                    out.println("ERROR: unsupported format: " + format);
+                    return;
+                }
+                out.println("Key imported: " + alias);
             }
         });
     }

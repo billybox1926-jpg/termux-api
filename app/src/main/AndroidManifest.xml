@@ -45,6 +45,7 @@
     <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
     <uses-permission android:name="android.permission.WRITE_CONTACTS" />
+    <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS" tools:ignore="ProtectedPermissions" />
 
     <!-- This permission is not used, but a permission is needed on the sharedfiles contentprovider,
          which will always use FLAG_GRANT_READ_URI_PERMISSION. -->
@@ -214,6 +215,48 @@
             android:documentLaunchMode="intoExisting"
             android:theme="@style/Theme.MarkdownViewActivity.DayNight"
             tools:ignore="MissingClass" />
+
+        <!-- Fix for issue #403: Device admin receiver -->
+        <receiver android:name=".apis.DeviceLockAPI$DeviceAdminReceiver"
+            android:permission="android.permission.BIND_DEVICE_ADMIN"
+            android:exported="false">
+            <meta-data android:name="android.app.device_admin"
+                android:resource="@xml/device_admin_policies" />
+            <intent-filter>
+                <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Fix for issue #394: Widget provider -->
+        <receiver android:name=".apis.TextWidgetProvider"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider"
+                android:resource="@xml/text_widget_info" />
+        </receiver>
+
+        <!-- Fix for issue #403: Device admin request activity -->
+        <activity android:name=".apis.DeviceLockAPI$DeviceAdminRequestActivity"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:noHistory="true"
+            android:excludeFromRecents="true"
+            android:exported="false" />
+
+        <!-- Fix for issue #802: WebView activity -->
+        <activity android:name=".apis.WebViewAPI$WebViewActivity"
+            android:theme="@style/Theme.BaseActivity.DayNight.NoActionBar"
+            android:exported="false" />
+
+        <!-- Fix for issue #394: Widget config activity -->
+        <activity android:name=".apis.WidgetAPI$WidgetConfigActivity"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
 
 
 

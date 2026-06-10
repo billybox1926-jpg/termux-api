@@ -58,6 +58,20 @@ import com.termux.api.apis.MediaProjectionAPI;
 import com.termux.api.apis.AccessibilityAPI;
 import com.termux.api.apis.MprisAPI;
 import com.termux.api.apis.RawContactsAPI;
+import com.termux.api.apis.NetworkBindAPI;
+import com.termux.api.apis.DeviceLockAPI;
+import com.termux.api.apis.BluetoothAudioAPI;
+import com.termux.api.apis.MdnsDiscoveryAPI;
+import com.termux.api.apis.ImeSwitcherAPI;
+import com.termux.api.apis.FitnessAPI;
+import com.termux.api.apis.ScreenshotAPI;
+import com.termux.api.apis.WebViewAPI;
+import com.termux.api.apis.MmsAPI;
+import com.termux.api.apis.MicStreamAPI;
+import com.termux.api.apis.UsbHidAPI;
+import com.termux.api.apis.UsbSerialAPI;
+import com.termux.api.apis.WidgetAPI;
+import com.termux.api.apis.SessionTextAPI;
 import com.termux.api.apis.MediaControlAPI;
 import com.termux.api.apis.WallpaperAPI;
 import com.termux.api.apis.WifiAPI;
@@ -381,6 +395,68 @@ public class TermuxApiReceiver extends BroadcastReceiver {
                         Manifest.permission.READ_CONTACTS, Manifest.permission.WRITE_CONTACTS)) {
                     RawContactsAPI.onReceive(this, context, intent);
                 }
+                break;
+            // Fix for issue #771: bind process to network
+            case "NetworkBind":
+                NetworkBindAPI.onReceive(this, context, intent);
+                break;
+            // Fix for issue #403: lock device
+            case "DeviceLock":
+                DeviceLockAPI.onReceive(this, context, intent);
+                break;
+            // Fix for issue #681: Bluetooth headset microphone
+            case "BluetoothAudio":
+                BluetoothAudioAPI.onReceive(this, context, intent);
+                break;
+            // Fix for issue #688: mDNS discovery
+            case "MdnsDiscovery":
+                MdnsDiscoveryAPI.onReceive(this, context, intent);
+                break;
+            // Fix for issue #284: IME switcher
+            case "ImeSwitcher":
+                ImeSwitcherAPI.onReceive(this, context, intent);
+                break;
+            // Fix for issue #350: fitness sensors
+            case "Fitness":
+                FitnessAPI.onReceive(this, context, intent);
+                break;
+            // Fix for issue #456: screenshot
+            case "Screenshot":
+                ScreenshotAPI.onReceive(this, context, intent);
+                break;
+            // Fix for issue #802: WebView
+            case "WebView":
+                WebViewAPI.onReceive(this, context, intent);
+                break;
+            // Fix for issue #240: MMS
+            case "Mms":
+                if (TermuxApiPermissionActivity.checkAndRequestPermissions(context, intent,
+                        Manifest.permission.SEND_SMS, Manifest.permission.READ_PHONE_STATE)) {
+                    MmsAPI.onReceive(this, context, intent);
+                }
+                break;
+            // Fix for issue #360: mic streaming
+            case "MicStream":
+                if (TermuxApiPermissionActivity.checkAndRequestPermissions(context, intent,
+                        Manifest.permission.RECORD_AUDIO)) {
+                    MicStreamAPI.onReceive(this, context, intent);
+                }
+                break;
+            // Fix for issue #393: USB HID (YubiKey)
+            case "UsbHid":
+                UsbHidAPI.onReceive(this, context, intent);
+                break;
+            // Fix for issue #395: USB-serial bridge
+            case "UsbSerial":
+                UsbSerialAPI.onReceive(this, context, intent);
+                break;
+            // Fix for issue #394: homescreen widget
+            case "Widget":
+                WidgetAPI.onReceive(this, context, intent);
+                break;
+            // Fix for issue #608: session text
+            case "SessionText":
+                SessionTextAPI.onReceive(this, context, intent);
                 break;
             default:
                 Logger.logError(LOG_TAG, "Unrecognized 'api_method' extra: '" + apiMethod + "'");
