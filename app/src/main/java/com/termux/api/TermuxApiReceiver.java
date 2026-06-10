@@ -161,6 +161,18 @@ public class TermuxApiReceiver extends BroadcastReceiver {
             case "Fingerprint":
                 FingerprintAPI.onReceive(context, intent);
                 break;
+            // Fix for issue #380: list and launch apps
+            case "AppManager":
+                AppManagerAPI.onReceive(this, context, intent);
+                break;
+            // Fix for issue #305: AlarmManager API
+            case "AlarmManager":
+                AlarmManagerAPI.onReceive(this, context, intent);
+                break;
+            // Fix for issue #390: AlarmClock API
+            case "AlarmClock":
+                AlarmClockAPI.onReceive(this, context, intent);
+                break;
             case "InfraredFrequencies":
                 if (TermuxApiPermissionActivity.checkAndRequestPermissions(context, intent, Manifest.permission.TRANSMIT_IR)) {
                     InfraredAPI.onReceiveCarrierFrequency(this, context, intent);
