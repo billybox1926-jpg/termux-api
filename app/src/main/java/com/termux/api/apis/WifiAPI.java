@@ -6,17 +6,22 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.location.LocationManager;
 import android.net.wifi.ScanResult;
+import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
+import android.net.wifi.WifiNetworkSpecifier;
 import android.os.Build;
+import android.os.Bundle;
 import android.provider.Settings;
 import android.text.TextUtils;
 import android.text.format.Formatter;
 import android.util.JsonWriter;
-
+import androidx.annotation.Nullable;
+import androidx.appcompat.app.AppCompatActivity;
 import com.termux.api.TermuxApiReceiver;
 import com.termux.api.util.ResultReturner;
 import com.termux.shared.logger.Logger;
+import java.util.List;
 
 import java.util.List;
 
@@ -198,6 +203,76 @@ public class WifiAPI {
                 out.endObject();
             }
         });
+    }
+
+    // Fix for issue #242: WiFi connect
+    public static void onReceiveWifiConnect(TermuxApiReceiver apiReceiver, Context context, Intent intent) {
+        String ssid = intent.getStringExtra("ssid");
+        String password = intent.getStringExtra("password");
+        String action = intent.getStringExtra("action");
+        if (ssid == null || ssid.isEmpty()) {
+            Intent pi = new Intent(context, WifiPickerActivity.class);
+            pi.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            context.startActivity(pi);
+            ResultReturner.returnData(apiReceiver, intent, out -> out.println("WiFi picker launched"));
+            return;
+        }
+        if ("disconnect".equals(action)) {
+            ResultReturner.returnData(apiReceiver, intent, out -> {
+                try { ((WifiManager) context.getApplicationContext().getSystemService(Context.WIFI_SERVICE)).disconnect(); out.println("Disconnected"); }
+                catch (Exception e) { out.println("ERROR: " + e.getMessage()); }
+            });
+            return;
+        }
+        ResultReturner.returnData(apiReceiver, intent, out -> {
+            try {
+                WifiManager mgr = (WifiManager) context.getApplicationContext().getSystemService(Context.WIFI_SERVICE);
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    WifiNetworkSpecifier.Builder sb = new WifiNetworkSpecifier.Builder().setSsid(ssid);
+                    if (password != null && !password.isEmpty()) sb.setWpa2Passphrase(password);
+                    NetworkRequest nr = new android.net.NetworkRequest.Builder()
+                            .addTransportType(android.net.NetworkCapabilities.TRANSPORT_WIFI)
+                            .setNetworkSpecifier(sb.build()).build();
+                    android.net.ConnectivityManager cm = (android.net.ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
+                    cm.requestNetwork(nr, new android.net.ConnectivityManager.NetworkCallback() {
+                        @Override public void onAvailable(android.net.Network n) { Logger.logInfo(LOG_TAG, "WiFi connected to " + ssid); }
+                        @Override public void onUnavailable() { Logger.logError(LOG_TAG, "WiFi failed " + ssid); }
+                    });
+                } else {
+                    WifiConfiguration cfg = new WifiConfiguration();
+                    cfg.SSID = "\"" + ssid + "\"";
+                    if (password != null && !password.isEmpty()) cfg.preSharedKey = "\"" + password + "\"";
+                    else cfg.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.NONE);
+                    int id = mgr.addNetwork(cfg);
+                    if (id == -1) { out.println("ERROR: Failed to add network"); return; }
+                    mgr.disconnect(); mgr.enableNetwork(id, true); mgr.reconnect();
+                }
+                out.println("Connecting to: " + ssid);
+            } catch (Exception e) { out.println("ERROR: " + e.getMessage()); }
+        });
+    }
+
+    public static class WifiPickerActivity extends AppCompatActivity {
+        boolean done = false;
+        @Override protected void onCreate(@Nullable Bundle savedInstanceState) {
+            super.onCreate(savedInstanceState);
+            WifiManager mgr = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
+            if (mgr == null) { finishAndRemoveTask(); return; }
+            List<ScanResult> results = mgr.getScanResults();
+            if (results == null || results.isEmpty()) {
+                new androidx.appcompat.app.AlertDialog.Builder(this).setTitle("WiFi").setMessage("No networks found")
+                        .setPositiveButton("OK", (d, w) -> finish()).setOnCancelListener(d -> finish()).show();
+                return;
+            }
+            java.util.LinkedHashMap<String, ScanResult> map = new java.util.LinkedHashMap<>();
+            for (ScanResult r : results) { if (r.SSID != null && !r.SSID.isEmpty() && !map.containsKey(r.SSID)) map.put(r.SSID, r); }
+            String[] ssids = map.keySet().toArray(new String[0]);
+            new androidx.appcompat.app.AlertDialog.Builder(this).setTitle("Select WiFi")
+                    .setItems(ssids, (dialog, which) -> {
+                        done = true; ResultReturner.returnData(this, getIntent(), o -> o.println(ssids[which])); finishAndRemoveTask();
+                    }).setOnCancelListener(d -> { if (!done) { done = true; try { ResultReturner.returnData(this, getIntent(), o -> o.println("")); } catch (Exception ignored) {} } finishAndRemoveTask(); }).show();
+        }
+        @Override protected void onDestroy() { super.onDestroy(); if (!done) { done = true; try { ResultReturner.returnData(this, getIntent(), o -> o.println("")); } catch (Exception ignored) {} } }
     }
 
 }

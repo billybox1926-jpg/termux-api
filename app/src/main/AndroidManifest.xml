@@ -151,6 +151,24 @@
             android:excludeFromRecents="true"
             android:exported="false" />
 
+        <!-- Fix for issue #242: WiFi picker activity -->
+        <activity android:name=".apis.WifiAPI$WifiPickerActivity"
+            android:theme="@style/DialogTheme"
+            android:noHistory="true"
+            android:excludeFromRecents="true"
+            android:exported="false" />
+
+        <!-- Fix for issues #566/#567: File dialog activities -->
+        <activity android:name=".apis.FileDialogAPI$SaveDialogActivity"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:noHistory="true" android:excludeFromRecents="true" android:exported="false" />
+        <activity android:name=".apis.FileDialogAPI$DirPickerActivity"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:noHistory="true" android:excludeFromRecents="true" android:exported="false" />
+        <activity android:name=".apis.FileDialogAPI$IntentResultActivity"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:noHistory="true" android:excludeFromRecents="true" android:exported="false" />
+
         <activity android:name=".apis.StorageGetAPI$StorageActivity"
             android:theme="@android:style/Theme.Translucent.NoTitleBar"
             android:excludeFromRecents="true"

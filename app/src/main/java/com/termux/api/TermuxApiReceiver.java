@@ -22,6 +22,7 @@ import com.termux.api.apis.ContactListAPI;
 import com.termux.api.apis.DialogAPI;
 import com.termux.api.apis.DownloadAPI;
 import com.termux.api.apis.FingerprintAPI;
+import com.termux.api.apis.FileDialogAPI;
 import com.termux.api.apis.AlarmClockAPI;
 import com.termux.api.apis.AlarmManagerAPI;
 import com.termux.api.apis.AppManagerAPI;
@@ -175,6 +176,10 @@ public class TermuxApiReceiver extends BroadcastReceiver {
             // Fix for issue #390: AlarmClock API
             case "AlarmClock":
                 AlarmClockAPI.onReceive(this, context, intent);
+                break;
+            // Fix for issues #566/#567: File dialog and intent result
+            case "FileDialog":
+                FileDialogAPI.onReceive(this, context, intent);
                 break;
             case "InfraredFrequencies":
                 if (TermuxApiPermissionActivity.checkAndRequestPermissions(context, intent, Manifest.permission.TRANSMIT_IR)) {
@@ -331,6 +336,12 @@ public class TermuxApiReceiver extends BroadcastReceiver {
             case "WifiRescan":
                 if (TermuxApiPermissionActivity.checkAndRequestPermissions(context, intent, Manifest.permission.ACCESS_FINE_LOCATION)) {
                     WifiAPI.onReceiveWifiRescan(this, context, intent);
+                }
+                break;
+            // Fix for issue #242: WiFi connect
+            case "WifiConnect":
+                if (TermuxApiPermissionActivity.checkAndRequestPermissions(context, intent, Manifest.permission.ACCESS_FINE_LOCATION)) {
+                    WifiAPI.onReceiveWifiConnect(this, context, intent);
                 }
                 break;
             // Fix for issue #352: allow restarting the API service
