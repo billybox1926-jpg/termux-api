@@ -30,6 +30,7 @@ Not fixable (OS/vague/duplicate/client-only): ~82
 - #538 Direct Reply to Notifications -> Already implemented (NotificationReply case + createReplyAction)
 - #607 fingerprint Connection refused -> Covered by #799 socket retry fix
 - #830 Can't send notifications -> Covered by POST_NOTIFICATIONS permission check
+- #864 Requesting Change System Settings permission fails -> Fixed (FLAG_ACTIVITY_NEW_TASK added)
 
 ### CATEGORY B: CLIENT-SIDE ONLY (need shell script changes in termux-api-package)
 - #297 Black UI support in termux-dialog -> Client script needs dark theme flag
