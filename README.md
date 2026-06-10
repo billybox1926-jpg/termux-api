@@ -11,6 +11,12 @@ This repository is a focused fork of **Termux:API**, the Android app that lets T
 
 ---
 
+## Media
+
+![Termux:API workbench preview](docs/assets/screenshot.png)
+
+Current workbench preview showing the debug APK / CI-focused Termux:API fork state.
+
 ## What this app does
 
 Termux runs as a terminal app. Android device features such as sensors, notifications, storage pickers, cameras, media controls, and telephony are owned by the Android framework. Termux needs an installed Android app to bridge those APIs safely.
