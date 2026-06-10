@@ -52,7 +52,7 @@ public class FileDialogAPI {
     public static class SaveDialogActivity extends AppCompatActivity {
         boolean done = false;
         @Override protected void onCreate(Bundle s) {
-            super.onCreate(savedInstanceState);
+            super.onCreate(s);
             String mime = getIntent().getStringExtra("mimetype"); if (mime == null) mime = "*/*";
             String fn = getIntent().getStringExtra("filename"); if (fn == null) fn = "file";
             try { startActivityForResult(new Intent(Intent.ACTION_CREATE_DOCUMENT)
@@ -73,7 +73,7 @@ public class FileDialogAPI {
     public static class DirPickerActivity extends AppCompatActivity {
         boolean done = false;
         @Override protected void onCreate(Bundle s) {
-            super.onCreate(savedInstanceState);
+            super.onCreate(s);
             try { startActivityForResult(new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE)
                     .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION|Intent.FLAG_GRANT_WRITE_URI_PERMISSION|Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION), 3002); }
             catch (Exception e) { done=true; ResultReturner.returnData(this,getIntent(),o->o.println("ERROR: "+e)); finishAndRemoveTask(); }
@@ -92,7 +92,7 @@ public class FileDialogAPI {
     public static class IntentResultActivity extends AppCompatActivity {
         boolean done = false;
         @Override protected void onCreate(Bundle s) {
-            super.onCreate(savedInstanceState);
+            super.onCreate(s);
             String a = getIntent().getStringExtra("intent_action");
             if (a == null) { done=true; ResultReturner.returnData(this,getIntent(),o->o.println("ERROR: no intent_action")); finishAndRemoveTask(); return; }
             Intent li = new Intent(a);
