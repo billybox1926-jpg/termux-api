@@ -108,6 +108,10 @@ public class TermuxApiReceiver extends BroadcastReceiver {
                     Intent settingsIntent = new Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS);
                     settingsIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                     context.startActivity(settingsIntent);
+                    // Fix for issue #466: return error instead of hanging
+                    ResultReturner.returnData(this, intent, out -> {
+                        out.println("Error: WRITE_SETTINGS permission not granted. Please enable it in Android settings.");
+                    });
                     return;
                 }
                 BrightnessAPI.onReceive(this, context, intent);
@@ -207,6 +211,10 @@ public class TermuxApiReceiver extends BroadcastReceiver {
                 if (!NotificationServiceEnabled) {
                     Toast.makeText(context,"Please give Termux:API Notification Access", Toast.LENGTH_LONG).show();
                     context.startActivity(new Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+                    // Fix for issue #466: return error instead of hanging
+                    ResultReturner.returnData(this, intent, out -> {
+                        out.println("Error: Notification access not enabled. Please enable it in Android settings.");
+                    });
                 } else {
                     NotificationListAPI.onReceive(this, context, intent);
                 }
