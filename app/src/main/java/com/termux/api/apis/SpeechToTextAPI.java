@@ -164,7 +164,9 @@ public class SpeechToTextAPI {
             recognizerIntent.putExtra(RecognizerIntent.EXTRA_PROMPT, "Enter shell command");
             recognizerIntent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
             recognizerIntent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 10);
-            recognizerIntent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, "en-US");
+            // Fix for issue #437: support configurable language
+            String language = mIntent.getStringExtra("language");
+            recognizerIntent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, language != null ? language : "en-US");
             recognizerIntent.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true);
             mSpeechRecognizer.startListening(recognizerIntent);
         }
