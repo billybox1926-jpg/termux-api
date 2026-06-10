@@ -706,6 +706,8 @@ public class DialogAPI {
                     textView.setText(values[j]);
                     textView.setTextSize(20);
                     textView.setPadding(56, 56, 56, 56);
+                    // Fix for issue #342: add content description for accessibility
+                    textView.setContentDescription("Option " + (j + 1) + ": " + values[j]);
                     textView.setOnClickListener(view -> {
                         InputResult result = new InputResult();
                         result.text = values[j];

@@ -5,6 +5,7 @@ import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.os.Build;
 import android.provider.Settings;
 import android.widget.Toast;
 
@@ -317,8 +318,27 @@ public class TermuxApiReceiver extends BroadcastReceiver {
                     WifiAPI.onReceiveWifiRescan(this, context, intent);
                 }
                 break;
+            // Fix for issue #352: allow restarting the API service
+            case "Restart":
+                restartApiService(context);
+                ResultReturner.returnData(this, intent, out -> out.println("API service restart initiated"));
+                break;
             default:
                 Logger.logError(LOG_TAG, "Unrecognized 'api_method' extra: '" + apiMethod + "'");
+        }
+    }
+
+    // Fix for issue #352: restart the KeepAliveService
+    private static void restartApiService(Context context) {
+        try {
+            Intent serviceIntent = new Intent(context, KeepAliveService.class);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(serviceIntent);
+            } else {
+                context.startService(serviceIntent);
+            }
+        } catch (Exception e) {
+            Logger.logStackTraceWithMessage(LOG_TAG, "Failed to restart API service", e);
         }
     }
 
