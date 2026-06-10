@@ -2,9 +2,8 @@ package com.termux.api.apis;
 
 import android.content.Context;
 import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
-import android.os.Handler;
-import android.os.Looper;
 import android.util.JsonWriter;
 import android.webkit.WebChromeClient;
 import android.webkit.WebView;
@@ -70,7 +69,10 @@ public class WebViewAPI {
             }
 
             webView = new WebView(this);
-            webView.getSettings().setJavaScriptEnabled(true);
+            Uri uri = Uri.parse(url);
+            String scheme = uri.getScheme();
+            boolean allowJavascript = "https".equalsIgnoreCase(scheme) || "about".equalsIgnoreCase(scheme);
+            webView.getSettings().setJavaScriptEnabled(allowJavascript);
             webView.getSettings().setDomStorageEnabled(true);
             webView.setWebViewClient(new WebViewClient());
             webView.setWebChromeClient(new WebChromeClient());
