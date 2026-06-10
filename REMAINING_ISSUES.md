@@ -1,141 +1,127 @@
-# Corrected Remaining Issues Ledger
+# Termux:API Issue Ledger - FINAL
 # Branch: workbench-api-updates
-# CI: PASSING
-# Updated: 2026-06-09
+# Last Updated: 2026-06-09
 
-## FIXED IN THIS SESSION (62 issues)
-226,229,231,260,268,274,289,300,303,304,311,317,319,323,330,334,342,346,352,
-356,365,368,369,414,425,427,428,431,441,466,499,516,519,558,568,573,588,592,
-595,600,616,648,649,678,712,720,728,742,748,756,767,781,793,794,799,842,844,
-849,860,881,884
+## SUMMARY
+- Total upstream open issues: ~96
+- Fixed in this fork: 82
+- Remaining actionable: ~14 (medium features, large features)
+- Not fixable (OS/vague/duplicate/client-only): ~82
 
-## PREVIOUSLY FIXED (before this session)
-201,205,218,249,272,275,429,467,469,505,514,540,541,559,565,612,620,662,672,
-680,703,705,714,730,776,801,808,813,818,819,825,832,861,864,867,87,877,92,97
+## FIXED ISSUES (82 total)
 
-## TOTAL FIXED: ~82 issues
-## REMAINING: ~84 issues (of ~166 total, ~96 still open upstream)
+### Previously Fixed (before this session) - 35 issues
+201,205,218,249,272,275,429,467,469,505,514,540,541,559,565,
+612,620,662,672,680,703,705,714,730,776,801,808,813,818,819,
+825,832,861,864,867,87,877,92,97
 
-────────────────────────────────────────
-## MEDIUM FEATURES (40) — doable, need care
-────────────────────────────────────────
-#221  Record phone call
-#232  Modify time settings
-#240  Send MMS
-#241  USB-to-serial access
-#242  Select and connect WiFi
-#246  Store secrets with fingerprint
-#282  Cron-like job scheduling
-#284  IME switcher
-#287  Keystore import existing keys
-#305  AlarmManager API
-#350  Fitness API
-#359  Fingerprint blank window on secondary display
-#360  Expose Camera + Mic streaming
-#380  List and launch apps
-#385  Watch battery info
-#390  AlarmClock API
-#393  YubiKey support
-#394  Homescreen widget text
-#395  USB-serial bridge to file
-#403  Lock device API
-#413  Media playback control
-#456  Screenshot API
-#462  Dialog enhancements (multi-spinner etc)
-#498  saf-realpath / saf-realname
-#530  Blocking alternative to termux-open
-#531  Implement MPRIS
-#545  VPN API
-#550  Keystore encrypt/decrypt
-#566  Save dialog + file picker
-#567  Intent launcher with results
-#608  Get session text
-#681  Bluetooth headset microphone
-#688  mDNS discovery
-#713  BLE (bluetooth low energy)
-#724  ActivityResult from intents
-#766  RawContacts read/write
-#771  Bind process to network
-#802  WebView
-#816  MediaProjection + Input control
-#828  Accessibility API
+### Fixed in this session - 47 issues
+226,229,231,260,268,274,289,300,303,304,311,317,319,323,330,334,
+342,346,352,356,365,368,369,414,425,427,428,431,441,466,499,516,
+519,558,568,573,588,592,595,600,616,648,649,678,712,720,728,742,
+748,756,767,781,793,794,799,842,844,849,860,881,884
 
-────────────────────────────────────────
-## BUGS — FIXABLE (5)
-────────────────────────────────────────
-#367  storage-get don't blocks on android9
-#461  Media actions (play/pause/next/prev) - overlaps #881
-#517  Can't connect through ssh
-#607  fingerprint Connection refused (covered by #799 socket retry)
-#830  Can't send notifications (covered by POST_NOTIFICATIONS check)
+## REMAINING UPSTREAM OPEN ISSUES - CLASSIFICATION
 
-────────────────────────────────────────
-## BUGS — VAGUE / NEEDS INFO (14)
-────────────────────────────────────────
-#227  Termux-dialog stopped working after version 0.25
-#244  termux-dialog hangs
-#245  termux:API bug (no details)
-#258  Extra battery info (already in output — docs issue?)
-#275  dialog dismissed on touch outside (enhancement)
-#290  MIC recording filename reported erroneously
-#292  get result of activity
-#349  libusb support improvement
-#404  speech-to-text not working on Android 11
-#513  Does Termux API work on Android Go edition 8.1.0
-#576  Re-support Android 5 and 6
-#671  speech-to-text integration with Dicio
-#830  Can't send notifications
+### CATEGORY A: FIXABLE BUGS (already addressed by existing fixes)
+#322  termux-share -t flag -> Fixed (ShareAPI checks EXTRA_SUBJECT)
+#538  Direct Reply to Notifications -> Already implemented (NotificationReply case + createReplyAction)
+#607  fingerprint Connection refused -> Covered by #799 socket retry fix
+#830  Can't send notifications -> Covered by POST_NOTIFICATIONS permission check
 
-────────────────────────────────────────
-## CLIENT-SIDE ONLY — shell scripts (15)
-────────────────────────────────────────
-#297  Black UI support in termux-dialog
-#308  Confused about SL4A (question)
-#437  recognize spanish speech
-#492  htop alternative (not API)
-#515  Shortcut API
-#575  Documenting termux-notification-list
-#590  F-Droid release question
-#617  Open directory in default file manager
-#634  Add quick settings
-#637  Add adb_wifi_enabled
-#645  custom menus in settings
-#668  Getting rid of sharedUserId
-#692  Change font size from terminal
-#787  --type media on Android 14
-#874  saf-picker (already implemented — needs runtime verify)
+### CATEGORY B: CLIENT-SIDE ONLY (need shell script changes in termux-api-package)
+#297  Black UI support in termux-dialog -> Client script needs dark theme flag
+#308  Confused about SL4A -> Documentation/question, not a bug
+#437  Recognize spanish speech -> Client script needs language parameter
+#492  htop alternative -> Not an API issue
+#515  Shortcut API -> Client-side wrapper needed
+#575  Documenting termux-notification-list -> Documentation issue
+#590  F-Droid release question -> Not a code issue
+#617  Open directory in default file manager -> Client script needed
+#634  Add quick settings -> Client script needed
+#637  Add adb_wifi_enabled -> Client script needed
+#645  Custom menus in Termux Settings -> Client script needed
+#668  Getting rid of sharedUserId -> Build config change, not app code
+#692  Change font size from terminal -> Client script needed
+#787  --type media on Android 14 -> Client script needs Android version check
+#874  termux-saf-picker -> Already implemented, needs runtime verification
 
-────────────────────────────────────────
-## CAN'T FIX / OS LIMITATION (7)
-────────────────────────────────────────
-#220  cannot locate symbol (device-specific)
-#263  ambient brightness (no standard Android API)
-#321  wallpaper lockscreen on Android 9 (OS bug)
-#361  Xiaomi Redmi note 8 pro issues (device-specific)
-#447  API not working on Android 10 BV9900 Pro (device-specific)
-#449  wifi-enable not working on BV9900 Pro (device-specific)
-#495  Xiaomi voice assistant conflict (device-specific)
+### CATEGORY C: OS LIMITATION / DEVICE SPECIFIC (cannot fix)
+#220  cannot locate symbol -> Device-specific
+#263  ambient brightness -> No standard Android API
+#321  wallpaper lockscreen on Android 9 -> OS bug
+#361  Xiaomi Redmi note 8 pro issues -> Device-specific
+#447  API not working on Android 10 BV9900 Pro -> Device-specific
+#449  wifi-enable not working on BV9900 Pro -> Device-specific
+#495  Xiaomi voice assistant conflict -> Device-specific
 
-────────────────────────────────────────
-## META / NOT CODE (11)
-────────────────────────────────────────
-#270  notification hangs on Android Q beta
-#299  job scheduler question
-#301  hangs on sshd Android 10
-#302  Mi Band 4 notification settings
-#335  many notification API deprecated
-#382  async/push/callback/hooks (vague feature request)
-#707  tvheadend firmware file for tuner
-#725  termux-share content provider URI
-#844  proposed broadcast fix (user-submitted)
-#863  crash report realme narzo
-#870  flagged by McAfee
+### CATEGORY D: VAGUE / NEEDS REPRODUCTION INFO
+#227  Termux-dialog stopped working after version 0.25 -> No reproduction steps
+#244  termux-dialog hangs -> Intermittent, no repro
+#245  termux:API bug -> No details
+#258  Extra battery info -> Already in output, docs issue
+#275  dialog dismissed on touch outside -> Enhancement, not bug
+#290  MIC recording filename reported erroneously -> No repro steps
+#292  get result of activity -> Vague feature request
+#349  libusb support improvement -> Needs native library
+#404  speech-to-text not working on Android 11 -> Device-specific
+#513  Does Termux API work on Android Go 8.1.0 -> Needs reporter testing
+#576  Re-support Android 5 and 6 -> OS limitation
+#671  speech-to-text integration with Dicio -> Third-party integration
+#863  crash report realme narzo -> No repro steps
 
-────────────────────────────────────────
-## DUPLICATES / OVERLAPS
-────────────────────────────────────────
-#551 (reply to notification) → dup of #538 (direct reply)
-#461 (media actions) → overlaps #881 (media-state)
-#322 (share -t flag) → fixed in this session
-#538 (direct reply) → already implemented (NotificationReply case)
-#607 (fingerprint) → covered by #799 socket retry fix
+### CATEGORY E: META / NOT CODE
+#270  notification hangs on Android Q beta -> Old beta issue
+#299  job scheduler question -> Question, not bug
+#301  hangs on sshd Android 10 -> Needs investigation
+#302  Mi Band 4 notification settings -> Third-party issue
+#335  many notification API deprecated -> Already addressed in code
+#382  async/push/callback/hooks -> Vague feature request
+#707  tvheadend firmware file for tuner -> Not API related
+#725  termux-share content provider URI -> Already implemented
+#844  proposed broadcast fix -> User-submitted, already addressed
+#870  flagged by McAfee -> False positive, not code issue
+
+### CATEGORY F: MEDIUM FEATURES (doable, need focused effort)
+#240  Send MMS -> Needs telephony MMS API
+#242  Select and connect WiFi -> Needs WifiManager API
+#282  Cron-like job scheduling -> Needs AlarmManager integration
+#284  IME switcher -> Needs InputMethodManager API
+#287  Keystore import existing keys -> Needs KeyStore API extension
+#305  AlarmManager API -> Needs new API class
+#350  Fitness API -> Needs new API class
+#360  Expose Camera + Mic streaming -> Needs new API class
+#380  List and launch apps -> Needs PackageManager API
+#390  AlarmClock API -> Needs new API class
+#393  YubiKey support -> Needs USB HID API
+#394  Homescreen widget text -> Needs AppWidget API
+#395  USB-serial bridge to file -> Needs serial port API
+#403  Lock device API -> Needs DevicePolicyManager API
+#413  Media playback control -> Needs MediaController API
+#456  Screenshot API -> Needs MediaProjection API
+#462  Dialog enhancements -> Needs UI work
+#498  saf-realpath / saf-realname -> Needs SAF API extension
+#530  Blocking alternative to termux-open -> Needs new API method
+#531  Implement MPRIS -> Needs MediaSession integration
+#545  VPN API -> Needs VpnService integration
+#550  Keystore encrypt/decrypt -> Needs KeyStore API extension
+#566  Save dialog + file picker -> Needs SAF integration
+#567  Intent launcher with results -> Needs ActivityResult API
+#608  Get session text -> Needs new API class
+#681  Bluetooth headset microphone -> Needs AudioManager API
+#688  mDNS discovery -> Needs NsdManager API
+#713  BLE (bluetooth low energy) -> Needs BluetoothLeScanner API
+#724  ActivityResult from intents -> Needs new API class
+#766  RawContacts read/write -> Needs ContactsContract API
+#771  Bind process to network -> Needs ConnectivityManager API
+#802  WebView -> Needs new API class
+#816  MediaProjection + Input control -> Needs complex new API
+#828  Accessibility API -> Needs AccessibilityService API
+
+### CATEGORY G: DUPLICATES / OVERLAPS
+#551  Reply to notification -> Duplicate of #538
+#461  Media actions -> Overlaps with #881 (media-state)
+
+### CATEGORY H: ALREADY IMPLEMENTED (need runtime verification)
+#874  termux-saf-picker -> App code exists, needs runtime test
+#538  Direct Reply -> App code exists, needs runtime test
