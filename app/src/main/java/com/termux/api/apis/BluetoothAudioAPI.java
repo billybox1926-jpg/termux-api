@@ -51,16 +51,20 @@ public class BluetoothAudioAPI {
             public void writeJson(JsonWriter out) throws Exception {
                 AudioManager am = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
                 out.beginObject();
-                if (am != null) {
-                    out.name("bluetooth_sco_on").value(am.isBluetoothScoOn());
-                    out.name("speakerphone_on").value(am.isSpeakerphoneOn());
-                    out.name("microphone_mute").value(am.isMicrophoneMute());
-                    out.name("mode").value(modeToString(am.getMode()));
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                        out.name("communication_device").value(
-                                am.getCommunicationDevice() != null ?
-                                        am.getCommunicationDevice().toString() : "none");
-                    }
+                if (am == null) {
+                    out.name("error").value("AudioManager not available");
+                    out.endObject();
+                    return;
+                }
+
+                out.name("bluetooth_sco_on").value(am.isBluetoothScoOn());
+                out.name("speakerphone_on").value(am.isSpeakerphoneOn());
+                out.name("microphone_mute").value(am.isMicrophoneMute());
+                out.name("mode").value(modeToString(am.getMode()));
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    out.name("communication_device").value(
+                            am.getCommunicationDevice() != null ?
+                                    am.getCommunicationDevice().toString() : "none");
                 }
                 out.endObject();
             }
