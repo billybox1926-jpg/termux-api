@@ -29,7 +29,7 @@ public class SocketListener {
     private static final Pattern EXTRA_LONG_LIST = Pattern.compile("--ela +([^ ]+) +(-?[0-9]+(?:,-?[0-9]+)*)");
     private static final Pattern EXTRA_UNSUPPORTED = Pattern.compile("--e[^izs ] +[^ ]+ +[^ ]+");
     private static final Pattern ACTION = Pattern.compile("-a *([^ ]+)");
-    
+
     private static Thread listener = null;
 
     private static final String LOG_TAG = "SocketListener";
@@ -47,14 +47,12 @@ public class SocketListener {
                                 continue;
                             }
                             try {
-                                //System.out.println("connection");
                                 int length = in.readUnsignedShort();
                                 byte[] b = new byte[length];
                                 in.readFully(b);
                                 String cmdline = new String(b, StandardCharsets.UTF_8);
-                        
+
                                 Intent intent = new Intent(app.getApplicationContext(), TermuxApiReceiver.class);
-                                //System.out.println(cmdline.replaceAll("--es socket_input \".*?\"","").replaceAll("--es socket_output \".*?\"",""));
                                 HashMap<String, String> stringExtras = new HashMap<>();
                                 HashMap<String, String[]> stringArrayExtras = new HashMap<>();
                                 HashMap<String, Boolean> booleanExtras = new HashMap<>();
@@ -63,14 +61,14 @@ public class SocketListener {
                                 HashMap<String, int[]> intArrayExtras = new HashMap<>();
                                 HashMap<String, long[]> longArrayExtras = new HashMap<>();
                                 boolean err = false;
-                        
+
                                 // extract and remove the string extras first, so another argument embedded in a string isn't counted as an argument
                                 Matcher m = EXTRA_STRING.matcher(cmdline);
                                 while (m.find()) {
                                     String option = m.group(1);
                                     if ("-e".equals(option) || "--es".equals(option)) {
                                         // unescape "
-                                        stringExtras.put(m.group(2), Objects.requireNonNull(m.group(3)).replaceAll("\\\\\"", "\""));
+                                        stringExtras.put(m.group(2), Objects.requireNonNull(m.group(3)).replace("\\\"", "\""));
                                     }
                                     else {
                                         // split the list
@@ -81,10 +79,10 @@ public class SocketListener {
                                         }
                                         stringArrayExtras.put(m.group(2), list);
                                     }
-                            
+
                                 }
                                 cmdline = m.replaceAll("");
-                        
+
                                 m = EXTRA_BOOLEAN.matcher(cmdline);
                                 while (m.find()) {
                                     String value = m.group(2);
@@ -113,7 +111,7 @@ public class SocketListener {
                                     booleanExtras.put(m.group(1), arg);
                                 }
                                 cmdline = m.replaceAll("");
-                        
+
                                 m = EXTRA_INT.matcher(cmdline);
                                 while (m.find()) {
                                     try {
@@ -128,7 +126,7 @@ public class SocketListener {
                                     }
                                 }
                                 cmdline = m.replaceAll("");
-                        
+
                                 m = EXTRA_FLOAT.matcher(cmdline);
                                 while (m.find()) {
                                     try {
@@ -143,7 +141,7 @@ public class SocketListener {
                                     }
                                 }
                                 cmdline = m.replaceAll("");
-                        
+
                                 m = EXTRA_INT_LIST.matcher(cmdline);
                                 while (m.find()) {
                                     try {
@@ -163,7 +161,7 @@ public class SocketListener {
                                     }
                                 }
                                 cmdline = m.replaceAll("");
-                        
+
                                 m = EXTRA_LONG_LIST.matcher(cmdline);
                                 while (m.find()) {
                                     try {
@@ -183,13 +181,13 @@ public class SocketListener {
                                     }
                                 }
                                 cmdline = m.replaceAll("");
-                        
+
                                 m = ACTION.matcher(cmdline);
                                 while (m.find()) {
                                     intent.setAction(m.group(1));
                                 }
                                 cmdline = m.replaceAll("");
-                        
+
                                 m = EXTRA_UNSUPPORTED.matcher(cmdline);
                                 if (m.find()) {
                                     String msg = "Unsupported argument type: " + m.group(0) + "\n";
@@ -198,7 +196,7 @@ public class SocketListener {
                                     err = true;
                                 }
                                 cmdline = m.replaceAll("");
-                        
+
                                 // check if there are any non-whitespace characters left after parsing all the options
                                 cmdline = cmdline.replaceAll("\\s", "");
                                 if (!"".equals(cmdline)) {
@@ -207,12 +205,12 @@ public class SocketListener {
                                     out.write(msg);
                                     err = true;
                                 }
-                        
+
                                 if (err) {
                                     out.flush();
                                     continue;
                                 }
-                        
+
                                 // set the intent extras
                                 for (Map.Entry<String, String> e : stringExtras.entrySet()) {
                                     intent.putExtra(e.getKey(), e.getValue());
@@ -254,7 +252,8 @@ public class SocketListener {
                 catch (Exception e) {
                     Logger.logStackTraceWithMessage(LOG_TAG, "Error listening for connections", e);
                 }
-            });
+            }, "TermuxSocketListener");
+            listener.setDaemon(true);
             listener.start();
         }
     }
