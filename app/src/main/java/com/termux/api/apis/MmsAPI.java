@@ -124,7 +124,7 @@ public class MmsAPI {
                         for (SubscriptionInfo info : sm.getActiveSubscriptionInfoList()) {
                             out.beginObject();
                             out.name("id").value(info.getSubscriptionId());
-                            out.name("carrier").value(info.getCarrierName());
+                            out.name("carrier").value(info.getCarrierName().toString());
                             out.name("number").value(info.getNumber());
                             out.endObject();
                         }
