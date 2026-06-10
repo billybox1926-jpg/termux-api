@@ -96,4 +96,7 @@
 
     <!-- Donate Preference -->
     <string name="link__donate___val__title">Donate</string>
+
+    <!-- Accessibility Service -->
+    <string name="accessibility_service_description">Termux:API accessibility service for reading screen content and performing accessibility actions.</string>
 </resources>

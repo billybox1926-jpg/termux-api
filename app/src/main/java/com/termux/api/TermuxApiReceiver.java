@@ -52,6 +52,12 @@ import com.termux.api.apis.TorchAPI;
 import com.termux.api.apis.UsbAPI;
 import com.termux.api.apis.VibrateAPI;
 import com.termux.api.apis.VolumeAPI;
+import com.termux.api.apis.BleAPI;
+import com.termux.api.apis.VpnAPI;
+import com.termux.api.apis.MediaProjectionAPI;
+import com.termux.api.apis.AccessibilityAPI;
+import com.termux.api.apis.MprisAPI;
+import com.termux.api.apis.RawContactsAPI;
 import com.termux.api.apis.MediaControlAPI;
 import com.termux.api.apis.WallpaperAPI;
 import com.termux.api.apis.WifiAPI;
@@ -348,6 +354,33 @@ public class TermuxApiReceiver extends BroadcastReceiver {
             case "Restart":
                 restartApiService(context);
                 ResultReturner.returnData(this, intent, out -> out.println("API service restart initiated"));
+                break;
+            // Fix for issue #713: BLE scanning
+            case "Ble":
+                BleAPI.onReceive(this, context, intent);
+                break;
+            // Fix for issue #545: VPN API
+            case "Vpn":
+                VpnAPI.onReceive(this, context, intent);
+                break;
+            // Fix for issue #816: MediaProjection
+            case "MediaProjection":
+                MediaProjectionAPI.onReceive(this, context, intent);
+                break;
+            // Fix for issue #828: Accessibility API
+            case "Accessibility":
+                AccessibilityAPI.onReceive(this, context, intent);
+                break;
+            // Fix for issue #531: MPRIS media session bridge
+            case "Mpris":
+                MprisAPI.onReceive(this, context, intent);
+                break;
+            // Fix for issue #766: Raw contacts read/write
+            case "RawContacts":
+                if (TermuxApiPermissionActivity.checkAndRequestPermissions(context, intent,
+                        Manifest.permission.READ_CONTACTS, Manifest.permission.WRITE_CONTACTS)) {
+                    RawContactsAPI.onReceive(this, context, intent);
+                }
                 break;
             default:
                 Logger.logError(LOG_TAG, "Unrecognized 'api_method' extra: '" + apiMethod + "'");
