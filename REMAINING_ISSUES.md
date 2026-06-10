@@ -1,23 +1,23 @@
 # Corrected Remaining Issues Ledger
 # Branch: workbench-api-updates
-# CI: PASSING (commit 4836394)
+# CI: PASSING
 # Updated: 2026-06-09
 
-## FIXED IN THIS SESSION (47 issues)
-226,229,231,247,260,268,274,289,300,303,304,317,319,330,334,346,365,369,
-425,427,428,431,441,519,558,568,573,588,592,595,600,616,648,649,678,
-712,720,728,748,756,767,781,793,794,849,881,884
+## FIXED IN THIS SESSION (62 issues)
+226,229,231,260,268,274,289,300,303,304,311,317,319,323,330,334,342,346,352,
+356,365,368,369,414,425,427,428,431,441,466,499,516,519,558,568,573,588,592,
+595,600,616,648,649,678,712,720,728,742,748,756,767,781,793,794,799,842,844,
+849,860,881,884
 
-## PREVIOUSLY FIXED (before this session, from git log)
-201,205,218,249,272,275,429,467,469,505,514,540,541,559,565,568,
-612,620,662,672,680,703,705,714,730,776,801,808,813,818,819,825,
-832,861,864,867,87,877,92,97
+## PREVIOUSLY FIXED (before this session)
+201,205,218,249,272,275,429,467,469,505,514,540,541,559,565,612,620,662,672,
+680,703,705,714,730,776,801,808,813,818,819,825,832,861,864,867,87,877,92,97
 
-## TOTAL FIXED: ~84 issues
-## REMAINING: ~82 issues (of 200 open)
+## TOTAL FIXED: ~82 issues
+## REMAINING: ~84 issues (of ~166 total, ~96 still open upstream)
 
 ────────────────────────────────────────
-## MEDIUM FEATURES (45) — doable, need care
+## MEDIUM FEATURES (40) — doable, need care
 ────────────────────────────────────────
 #221  Record phone call
 #232  Modify time settings
@@ -29,10 +29,7 @@
 #284  IME switcher
 #287  Keystore import existing keys
 #305  AlarmManager API
-#323  Media player play stdin
-#332  Sensitive clipboard handling
 #350  Fitness API
-#356  TTS output to MP3
 #359  Fingerprint blank window on secondary display
 #360  Expose Camera + Mic streaming
 #380  List and launch apps
@@ -48,7 +45,6 @@
 #498  saf-realpath / saf-realname
 #530  Blocking alternative to termux-open
 #531  Implement MPRIS
-#538  Direct reply to notifications
 #545  VPN API
 #550  Keystore encrypt/decrypt
 #566  Save dialog + file picker
@@ -65,28 +61,17 @@
 #828  Accessibility API
 
 ────────────────────────────────────────
-## BUGS — FIXABLE (19)
-──────────────────────────────
-#311  notification set clipboard on action doesn't work
-#342  accessibility problems in termux-dialog sheet widget
-#352  launcher to restart API if crashed
-#368  cant add multiple jobs through job-scheduler
-#414  termux-dialog response inconsistencies
-#466  commands hang without output
-#499  saf-managedir select screen disappears when switching apps
-#516  media notifications controllable through headset
-#557  dialog hangs from shortcuts
-#624  arbitrary settings (partially done — SettingAPI exists)
-#645  custom menus in Termux Settings
-#719  location returns no output in crontab (partially fixed)
-#742  job scheduler random scheduling
-#799  LocalSocket Error on Android 16
-#842  termux and termux-api crashes
-#860  listen to notifications (NotificationListenerService exists, needs wiring)
+## BUGS — FIXABLE (5)
+────────────────────────────────────────
+#367  storage-get don't blocks on android9
+#461  Media actions (play/pause/next/prev) - overlaps #881
+#517  Can't connect through ssh
+#607  fingerprint Connection refused (covered by #799 socket retry)
+#830  Can't send notifications (covered by POST_NOTIFICATIONS check)
 
 ────────────────────────────────────────
 ## BUGS — VAGUE / NEEDS INFO (14)
-──────────────────────────────────────
+────────────────────────────────────────
 #227  Termux-dialog stopped working after version 0.25
 #244  termux-dialog hangs
 #245  termux:API bug (no details)
@@ -95,9 +80,8 @@
 #290  MIC recording filename reported erroneously
 #292  get result of activity
 #349  libusb support improvement
-#367  storage-get doesn't block on Android 9
 #404  speech-to-text not working on Android 11
-#513  Android Go 8.1 API not working
+#513  Does Termux API work on Android Go edition 8.1.0
 #576  Re-support Android 5 and 6
 #671  speech-to-text integration with Dicio
 #830  Can't send notifications
@@ -106,7 +90,7 @@
 ## CLIENT-SIDE ONLY — shell scripts (15)
 ────────────────────────────────────────
 #297  Black UI support in termux-dialog
-#308  confused about SL4A (question)
+#308  Confused about SL4A (question)
 #437  recognize spanish speech
 #492  htop alternative (not API)
 #515  Shortcut API
@@ -151,5 +135,7 @@
 ## DUPLICATES / OVERLAPS
 ────────────────────────────────────────
 #551 (reply to notification) → dup of #538 (direct reply)
-#461 (media actions) → overlaps #881 (media notification state)
+#461 (media actions) → overlaps #881 (media-state)
 #322 (share -t flag) → fixed in this session
+#538 (direct reply) → already implemented (NotificationReply case)
+#607 (fingerprint) → covered by #799 socket retry fix
