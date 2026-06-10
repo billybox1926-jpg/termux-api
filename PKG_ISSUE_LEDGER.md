@@ -9,10 +9,12 @@ Total upstream open issues: 38
 Fixed in this fork: 1
 Remaining actionable: ~37
 
-## FIXED ISSUES (1 total)
+## FIXED ISSUES (3 total)
 
-### Fixed in this session - 1 issue
-- #224 run_api_command leaks file descriptors → Fixed (close input_server_socket and output_server_socket before return in termux-api.c)
+### Fixed in this session - 3 issues
+- #224 run_api_command leaks file descriptors → Fixed (close input_server_socket and output_server_socket before return in termux-api.c) — CI green
+- #200 termux-api command should detect if Termux:API plugin is not installed → Fixed (is_termux_api_installed() check in termux-api-broadcast.c) — CI green
+- #138 termux-api never returns if Android app is not installed → Fixed (same #200 fix covers this)
 
 ## REMAINING UPSTREAM OPEN ISSUES
 
