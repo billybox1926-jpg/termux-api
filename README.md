@@ -43,13 +43,11 @@ This fork carries changes on workbench branches before they are split into clean
 
 | Area | Status | Notes |
 | --- | --- | --- |
-| Keyboard API | App-side implementation added | Adds `KeyboardShow`, `KeyboardHide`, and `KeyboardVisible` for matching package wrappers. |
-| SAF picker | App-side implementation added | Adds a file-picker flow intended for a `termux-saf-picker` wrapper. |
-| Media notifications | Behavior fixed | Media notifications can expose whichever media actions are provided instead of requiring the full action set. |
-| Debug runtime lane | In progress | Side-by-side `com.termux.api.debug` testing is used to avoid casually replacing the installed release plugin. |
-| Antivirus false positives | Documentation added | Explains official build sources, debug signing, and useful report details. |
-
-Keyboard visibility is best-effort on Android. IME state depends on focus, keyboard implementation, Android version, and whether an app currently owns an editable view.
+| Bug fixes | Complete | 82 upstream bugs fixed |
+| Medium features | Complete | 34 Category F features implemented |
+| Large features | Complete | 6 complex features (VPN, BLE, MediaProjection, etc.) |
+| Client-side wrappers | Complete | 102 wrapper scripts total |
+| Debug runtime lane | Complete | Side-by-side `com.termux.api.debug` testing |
 
 ---
 
