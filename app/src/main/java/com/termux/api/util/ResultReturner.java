@@ -250,14 +250,15 @@ public abstract class ResultReturner {
 
                 // Retry connecting to the socket to handle race conditions
                 // where the client may not be ready yet or has momentarily closed.
-                // Up to 5 retries with progressive delay (50ms, 100ms, 150ms, 200ms, 250ms).
+                // Up to 10 retries with progressive delay for Android 16 compatibility (#799).
                 LocalSocketAddress address = getApiLocalSocketAddress(ResultReturner.context, "output", outputSocketAddress);
                 boolean connected = false;
                 IOException lastException = null;
-                for (int retry = 0; retry < 5 && !connected; retry++) {
+                int maxRetries = 10;  // Fix for issue #799: increased retries for Android 16
+                for (int retry = 0; retry < maxRetries && !connected; retry++) {
                     try {
                         if (retry > 0) {
-                            int delay = retry * 50;
+                            int delay = retry * 100;  // Fix for issue #799: longer delay (100ms, 200ms, ...)
                             Logger.logDebug(LOG_TAG, "Retry " + retry + " connecting to output socket (delay=" + delay + "ms)");
                             Thread.sleep(delay);
                         }
@@ -289,7 +290,23 @@ public abstract class ResultReturner {
                             String inputSocketAddress = intent.getStringExtra(SOCKET_INPUT_EXTRA);
                             if (inputSocketAddress == null || inputSocketAddress.isEmpty())
                                 throw new IOException("Missing '" + SOCKET_INPUT_EXTRA + "' extra");
-                            inputSocket.connect(getApiLocalSocketAddress(ResultReturner.context, "input", inputSocketAddress));
+                            // Fix for issue #799: retry connecting to input socket for Android 16
+                            LocalSocketAddress inputAddress = getApiLocalSocketAddress(ResultReturner.context, "input", inputSocketAddress);
+                            boolean inputConnected = false;
+                            for (int retry = 0; retry < 10 && !inputConnected; retry++) {
+                                try {
+                                    if (retry > 0) {
+                                        Thread.sleep(retry * 100L);
+                                    }
+                                    inputSocket.connect(inputAddress);
+                                    inputConnected = true;
+                                } catch (IOException e) {
+                                    if (retry == 9) throw e;
+                                } catch (InterruptedException e) {
+                                    Thread.currentThread().interrupt();
+                                    break;
+                                }
+                            }
                             ((WithInput) resultWriter).setInput(inputSocket.getInputStream());
                             resultWriter.writeResult(writer);
                         }
