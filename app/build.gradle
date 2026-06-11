@@ -44,7 +44,13 @@ android {
         debug {
             if (customDebugKeystore) signingConfig signingConfigs.customDebug
             applicationIdSuffix ".debug"
-            manifestPlaceholders.TERMUX_PACKAGE_NAME = "com.termux.api.debug"
+            // Keep TERMUX_PACKAGE_NAME as "com.termux" so that sharedUserId
+            // matches the main Termux app. The applicationIdSuffix already makes
+            // this a separate installable package, but shared UID requires the
+            // same sharedUserId string AND matching signing certificates.
+            // Self-referential values (authorities, permissions) should use
+            // ${applicationId} instead of ${TERMUX_PACKAGE_NAME}.
+            manifestPlaceholders.TERMUX_PACKAGE_NAME = "com.termux"
         }
     }
 

@@ -53,9 +53,27 @@ public class SocketListener {
                     try (LocalSocket con = listen.accept();
                          DataInputStream in = new DataInputStream(con.getInputStream());
                          BufferedWriter out = new BufferedWriter(new OutputStreamWriter(con.getOutputStream()))) {
-                        // only accept connections from Termux programs
-                        if (con.getPeerCredentials().getUid() != app.getApplicationInfo().uid) {
-                            continue;
+                        // Only accept connections from Termux programs.
+                        // Check that the peer UID matches either our UID or the
+                        // Termux main app's UID (for sharedUserId configurations).
+                        int peerUid = con.getPeerCredentials().getUid();
+                        int ourUid = app.getApplicationInfo().uid;
+                        if (peerUid != ourUid) {
+                            // Also accept the Termux main app UID for sharedUserId.
+                            // Get the Termux app's UID via PackageManager.
+                            android.content.pm.PackageManager pm = app.getPackageManager();
+                            try {
+                                android.content.pm.ApplicationInfo termuxAppInfo =
+                                    pm.getApplicationInfo(TermuxConstants.TERMUX_PACKAGE_NAME, 0);
+                                if (peerUid != termuxAppInfo.uid) {
+                                    Logger.logDebug(LOG_TAG, "Rejecting connection from UID " + peerUid +
+                                        " (expected " + ourUid + " or Termux UID " + termuxAppInfo.uid + ")");
+                                    continue;
+                                }
+                            } catch (android.content.pm.PackageManager.NameNotFoundException e) {
+                                // Termux app not installed, reject
+                                continue;
+                            }
                         }
                         try {
                             int length = in.readUnsignedShort();
