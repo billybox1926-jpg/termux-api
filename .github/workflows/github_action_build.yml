@@ -87,6 +87,28 @@ jobs:
 
           echo "APK built successfully: $APK_PATH"
 
+          # Verify debug package name is com.termux.api.debug (side-by-side installable)
+          # Use aapt2 if available, otherwise aapt, otherwise skip (build.gradle is the source of truth)
+          AAPT_CMD=$(command -v aapt2 2>/dev/null || command -v aapt 2>/dev/null || echo "")
+          if [ -n "$AAPT_CMD" ]; then
+            DEBUG_PKG=$($AAPT_CMD dump badging "$APK_PATH" 2>/dev/null | grep -oP 'package: name=\K[^ ]+' || echo "")
+            if [ -n "$DEBUG_PKG" ] && [ "$DEBUG_PKG" != "com.termux.api.debug" ]; then
+              echo "Debug APK package name is '$DEBUG_PKG', expected 'com.termux.api.debug'"
+              exit 1
+            fi
+            if [ "$DEBUG_PKG" = "com.termux.api.debug" ]; then
+              echo "Debug APK package name verified: $DEBUG_PKG"
+            fi
+          fi
+
+          # Verify release build type still uses com.termux.api (check build.gradle)
+          if grep -q 'applicationId "com.termux.api"' ./app/build.gradle; then
+            echo "✅ Release applicationId unchanged: com.termux.api"
+          else
+            echo "❌ Release applicationId check failed in build.gradle"
+            exit 1
+          fi
+
           # Generate checksum
           (cd "$APK_DIR_PATH" && sha256sum "${APK_BASENAME_PREFIX}.apk" > checksums-sha256.txt)
 
