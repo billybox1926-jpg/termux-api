@@ -52,6 +52,10 @@ android {
         targetCompatibility JavaVersion.VERSION_11
     }
 
+    buildFeatures {
+        buildConfig = true
+    }
+
     applicationVariants.all { variant ->
         variant.outputs.all { output ->
             outputFileName = new File("termux-api-app_" +
