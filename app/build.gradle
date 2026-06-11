@@ -21,7 +21,6 @@ android {
         manifestPlaceholders.TERMUX_PACKAGE_NAME = "com.termux"
         manifestPlaceholders.TERMUX_APP_NAME = "Termux"
         manifestPlaceholders.TERMUX_API_APP_NAME = "Termux:API"
-        manifestPlaceholders.TERMUX_SHARED_USER_ID = "com.termux"
     }
 
     signingConfigs {
@@ -61,9 +60,6 @@ android {
             manifestPlaceholders.TERMUX_PACKAGE_NAME = "com.termux.api.debug"
             // The Termux main app package for cross-app UID acceptance.
             manifestPlaceholders.TERMUX_HOST_PACKAGE_NAME = "com.termux"
-            // Clear sharedUserId for standalone debug builds to avoid
-            // INSTALL_FAILED_SHARED_USER_INCOMPATIBLE at install time.
-            manifestPlaceholders.TERMUX_SHARED_USER_ID = ""
         }
     }
 
