@@ -76,6 +76,7 @@ import com.termux.api.apis.MediaControlAPI;
 import com.termux.api.apis.WallpaperAPI;
 import com.termux.api.apis.WifiAPI;
 import com.termux.api.activities.TermuxApiPermissionActivity;
+import com.termux.api.apis.ApiStatusAPI;
 import com.termux.api.util.ResultReturner;
 import com.termux.shared.data.IntentUtils;
 import com.termux.shared.logger.Logger;
@@ -375,10 +376,14 @@ public class TermuxApiReceiver extends BroadcastReceiver {
                     WifiAPI.onReceiveWifiConnect(this, context, intent);
                 }
                 break;
-            // Fix for issue #352: allow restarting the API service
+            // Fix for issue #352: restart the API service
             case "Restart":
                 restartApiService(context);
                 ResultReturner.returnData(this, intent, out -> out.println("API service restart initiated"));
+                break;
+            // ApiStatus: return app identity, socket address, and listener state
+            case "ApiStatus":
+                ApiStatusAPI.onReceive(this, context, intent);
                 break;
             // Fix for issue #713: BLE scanning
             case "Ble":
