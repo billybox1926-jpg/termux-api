@@ -74,7 +74,7 @@ jobs:
           export TERMUX_API_APP__BUILD__APP_VERSION_NAME="${RELEASE_VERSION_NAME#v}"
           export TERMUX_API_APP__BUILD__APK_VERSION_TAG="$APK_VERSION_TAG"
 
-          ./gradlew assembleDebug --no-daemon
+          ./gradlew assembleDebug --no-daemon --stacktrace
 
           # Validation
           APK_PATH="${APK_DIR_PATH}/${APK_BASENAME_PREFIX}.apk"
