@@ -6,15 +6,6 @@ android {
     compileSdk project.properties.compileSdkVersion.toInteger()
     def appVersionName = System.getenv("TERMUX_API_APP__BUILD__APP_VERSION_NAME") ?: ""
     def apkVersionTag = System.getenv("TERMUX_API_APP__BUILD__APK_VERSION_TAG") ?: ""
-    def customDebugKeystore = System.getenv("DEBUG_KEYSTORE")
-    def customDebugKeyAlias = System.getenv("DEBUG_KEY_ALIAS")
-    def customDebugStorePassword = System.getenv("DEBUG_KEYSTORE_PASSWORD")
-    def customDebugKeyPassword = System.getenv("DEBUG_KEY_PASSWORD")
-    def useCustomDebugSigning = customDebugKeystore && customDebugKeyAlias && customDebugStorePassword && customDebugKeyPassword
-
-    if (customDebugKeystore && !useCustomDebugSigning) {
-        throw new GradleException("DEBUG_KEYSTORE requires DEBUG_KEY_ALIAS, DEBUG_KEYSTORE_PASSWORD, and DEBUG_KEY_PASSWORD")
-    }
 
     defaultConfig {
         applicationId "com.termux.api"
@@ -32,13 +23,11 @@ android {
     }
 
     signingConfigs {
-        customDebug {
-            if (useCustomDebugSigning) {
-                storeFile file(customDebugKeystore)
-                keyAlias customDebugKeyAlias
-                storePassword customDebugStorePassword
-                keyPassword customDebugKeyPassword
-            }
+        debug {
+            storeFile file('termux-debug-shared.jks')
+            keyAlias 'termuxdebug'
+            storePassword 'termuxdebug'
+            keyPassword 'termuxdebug'
         }
     }
 
@@ -50,19 +39,13 @@ android {
         }
 
         debug {
-            if (useCustomDebugSigning) signingConfig signingConfigs.customDebug
-            applicationIdSuffix ".debug"
-            // Standalone debug build: use our own package identity.
-            // sharedUserId is omitted because the debug APK is signed with a
-            // different key than the installed Termux main app, and Android
-            // rejects INSTALL_FAILED_SHARED_USER_INCOMPATIBLE at install time.
-            // The SocketListener UID check is relaxed to accept connections
-            // from either our UID or the Termux main app's UID.
-            manifestPlaceholders.TERMUX_PACKAGE_NAME = "com.termux.api.debug"
-            // The Termux main app package for cross-app UID acceptance.
+            signingConfig signingConfigs.debug
+            // Matched-stack debug: same key as Termux app, sharedUserId works.
+            // No applicationIdSuffix — this is the real com.termux.api.
+            manifestPlaceholders.TERMUX_PACKAGE_NAME = "com.termux"
             manifestPlaceholders.TERMUX_HOST_PACKAGE_NAME = "com.termux"
 
-            buildConfigField "String", "SOCKET_ADDRESS", "\"com.termux.api.debug://listen\""
+            buildConfigField "String", "SOCKET_ADDRESS", "\"com.termux.api://listen\""
         }
     }
 
