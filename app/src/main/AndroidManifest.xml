@@ -273,6 +273,17 @@
         <receiver android:name=".TermuxApiReceiver"
             android:exported="false" />
 
+        <!-- Narrow exported receiver for starting KeepAliveService.
+             Allows Termux package wrappers to prewarm the API app without
+             launching an Activity. Only accepts START_SERVICE action. -->
+        <receiver
+            android:name=".StartServiceReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.termux.api.action.START_SERVICE" />
+            </intent-filter>
+        </receiver>
+
         <!-- Fix for issue #305: AlarmManager alarm receiver -->
         <receiver android:name=".apis.AlarmManagerAPI$AlarmReceiver"
             android:exported="false" />
