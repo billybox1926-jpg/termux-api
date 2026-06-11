@@ -60,6 +60,8 @@ android {
             manifestPlaceholders.TERMUX_PACKAGE_NAME = "com.termux.api.debug"
             // The Termux main app package for cross-app UID acceptance.
             manifestPlaceholders.TERMUX_HOST_PACKAGE_NAME = "com.termux"
+
+            buildConfigField "String", "SOCKET_ADDRESS", "\"com.termux.api.debug://listen\""
         }
     }
 
