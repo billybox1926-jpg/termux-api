@@ -21,6 +21,7 @@ android {
         manifestPlaceholders.TERMUX_PACKAGE_NAME = "com.termux"
         manifestPlaceholders.TERMUX_APP_NAME = "Termux"
         manifestPlaceholders.TERMUX_API_APP_NAME = "Termux:API"
+        manifestPlaceholders.TERMUX_SHARED_USER_ID = "com.termux"
     }
 
     signingConfigs {
@@ -51,13 +52,18 @@ android {
             signingConfig signingConfigs.debug
             if (customDebugKeystore) signingConfig signingConfigs.customDebug
             applicationIdSuffix ".debug"
-            // Keep TERMUX_PACKAGE_NAME as "com.termux" so that sharedUserId
-            // matches the main Termux app. The applicationIdSuffix already makes
-            // this a separate installable package, but shared UID requires the
-            // same sharedUserId string AND matching signing certificates.
-            // Self-referential values (authorities, permissions) should use
-            // ${applicationId} instead of ${TERMUX_PACKAGE_NAME}.
-            manifestPlaceholders.TERMUX_PACKAGE_NAME = "com.termux"
+            // Standalone debug build: use our own package identity.
+            // sharedUserId is omitted because the debug APK is signed with a
+            // different key than the installed Termux main app, and Android
+            // rejects INSTALL_FAILED_SHARED_USER_INCOMPATIBLE at install time.
+            // The SocketListener UID check is relaxed to accept connections
+            // from either our UID or the Termux main app's UID.
+            manifestPlaceholders.TERMUX_PACKAGE_NAME = "com.termux.api.debug"
+            // The Termux main app package for cross-app UID acceptance.
+            manifestPlaceholders.TERMUX_HOST_PACKAGE_NAME = "com.termux"
+            // Clear sharedUserId for standalone debug builds to avoid
+            // INSTALL_FAILED_SHARED_USER_INCOMPATIBLE at install time.
+            manifestPlaceholders.TERMUX_SHARED_USER_ID = ""
         }
     }
 
