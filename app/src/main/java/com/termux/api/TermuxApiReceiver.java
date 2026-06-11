@@ -105,8 +105,13 @@ public class TermuxApiReceiver extends BroadcastReceiver {
             // behaviour from the Android system.
             Logger.logStackTraceWithMessage(LOG_TAG, message, t);
 
-            TermuxPluginUtils.sendPluginCommandErrorNotification(context, LOG_TAG,
-                    TermuxConstants.TERMUX_API_APP_NAME + " Error", message, t);
+            try {
+                TermuxPluginUtils.sendPluginCommandErrorNotification(context, LOG_TAG,
+                        TermuxConstants.TERMUX_API_APP_NAME + " Error", message, t);
+            } catch (SecurityException e) {
+                // PendingIntent UID mismatch when debug package tries to send as com.termux
+                Logger.logDebug(LOG_TAG, "SecurityException sending error notification: " + e.getMessage());
+            }
 
             ResultReturner.noteDone(this, intent);
         }

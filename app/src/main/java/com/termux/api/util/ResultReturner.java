@@ -246,8 +246,10 @@ public abstract class ResultReturner {
             try {
                 outputSocket = new LocalSocket();
                 String outputSocketAddress = intent.getStringExtra(SOCKET_OUTPUT_EXTRA);
-                if (outputSocketAddress == null || outputSocketAddress.isEmpty())
-                    throw new IOException("Missing '" + SOCKET_OUTPUT_EXTRA + "' extra");
+                if (outputSocketAddress == null || outputSocketAddress.isEmpty()) {
+                    Logger.logDebug(LOG_TAG, "No '" + SOCKET_OUTPUT_EXTRA + "' extra, skipping result return");
+                    return;
+                }
                 Logger.logDebug(LOG_TAG, "Connecting to output socket \"" + outputSocketAddress + "\"");
 
                 // Retry connecting to the socket to handle race conditions
@@ -334,8 +336,13 @@ public abstract class ResultReturner {
 
                 // Fix for issue #842: skip notification if ResultReturner.context is null (app not fully initialized)
                 if (ResultReturner.context != null) {
-                    TermuxPluginUtils.sendPluginCommandErrorNotification(ResultReturner.context, LOG_TAG,
-                            TermuxConstants.TERMUX_API_APP_NAME + " Error", message, t);
+                    try {
+                        TermuxPluginUtils.sendPluginCommandErrorNotification(ResultReturner.context, LOG_TAG,
+                                TermuxConstants.TERMUX_API_APP_NAME + " Error", message, t);
+                    } catch (SecurityException e) {
+                        // PendingIntent UID mismatch when debug package tries to send as com.termux
+                        Logger.logDebug(LOG_TAG, "SecurityException sending error notification: " + e.getMessage());
+                    }
                 }
 
                 if (asyncResult != null && receiver != null && receiver.isOrderedBroadcast()) {
