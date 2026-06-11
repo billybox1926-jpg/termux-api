@@ -55,6 +55,12 @@ public class KeepAliveService extends Service {
         }
         startForeground(NOTIFICATION_ID, notification);
 
+        // Create the socket listener if not already running.
+        // This is needed because the KeepAliveService may be started from
+        // TermuxApiReceiver.onReceive() and the Application.onCreate() may
+        // not have run yet (e.g. process started just for the broadcast).
+        SocketListener.createSocketListener(getApplication());
+
         return Service.START_STICKY;
     }
 

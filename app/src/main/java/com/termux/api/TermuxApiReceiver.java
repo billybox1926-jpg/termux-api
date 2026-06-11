@@ -91,6 +91,12 @@ public class TermuxApiReceiver extends BroadcastReceiver {
         TermuxAPIApplication.setLogConfig(context, false);
         Logger.logDebug(LOG_TAG, "Intent Received:\n" + IntentUtils.getIntentString(intent));
 
+        // Start the KeepAliveService to keep the process alive so that the
+        // SocketListener (registered in TermuxAPIApplication.onCreate) keeps
+        // running after onReceive returns. Without this, Android kills the
+        // process immediately after onReceive and the socket disappears.
+        restartApiService(context);
+
         try {
             doWork(context, intent);
         } catch (Throwable t) {
