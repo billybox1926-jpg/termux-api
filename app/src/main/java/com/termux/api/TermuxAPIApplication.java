@@ -2,6 +2,8 @@ package com.termux.api;
 
 import android.app.Application;
 import android.content.Context;
+import android.content.Intent;
+import android.os.Build;
 import android.util.Log;
 
 import com.termux.api.util.ResultReturner;
@@ -30,7 +32,14 @@ public class TermuxAPIApplication extends Application {
         // Set log config for the app
         setLogConfig(context, true);
 
-        SocketListener.createSocketListener(this);
+        // Start the KeepAliveService to create the SocketListener.
+        // The service owns the socket lifecycle; Application is kept minimal.
+        Intent serviceIntent = new Intent(this, KeepAliveService.class);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForegroundService(serviceIntent);
+        } else {
+            startService(serviceIntent);
+        }
     }
 
     public static void setLogConfig(Context context, boolean commitToFile) {
