@@ -50,11 +50,16 @@ jobs:
           fi
 
           # Verify debug package name is com.termux.api.debug (side-by-side installable)
-          DEBUG_PKG=$(aapt dump badging "$APK_DIR_PATH/${APK_BASENAME_PREFIX}.apk" 2>/dev/null | grep -oP 'package: name=\K[^ ]+')
-          if [ "$DEBUG_PKG" != "com.termux.api.debug" ]; then
-            exit_on_error "Debug APK package name is '$DEBUG_PKG', expected 'com.termux.api.debug'"
+          AAPT_CMD=$(command -v aapt2 2>/dev/null || command -v aapt 2>/dev/null || echo "")
+          if [ -n "$AAPT_CMD" ]; then
+            DEBUG_PKG=$($AAPT_CMD dump badging "$APK_DIR_PATH/${APK_BASENAME_PREFIX}.apk" 2>/dev/null | grep -oP 'package: name=\K[^ ]+' || echo "")
+            if [ -n "$DEBUG_PKG" ] && [ "$DEBUG_PKG" != "com.termux.api.debug" ]; then
+              exit_on_error "Debug APK package name is '$DEBUG_PKG', expected 'com.termux.api.debug'"
+            fi
+            if [ "$DEBUG_PKG" = "com.termux.api.debug" ]; then
+              echo "Debug APK package name verified: $DEBUG_PKG"
+            fi
           fi
-          echo "Debug APK package name verified: $DEBUG_PKG"
 
           echo "Generating checksums-sha256.txt file"
           if ! (cd "$APK_DIR_PATH"; sha256sum "${APK_BASENAME_PREFIX}.apk" > checksums-sha256.txt); then

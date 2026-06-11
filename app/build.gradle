@@ -36,11 +36,13 @@ android {
             minifyEnabled true
             shrinkResources false // Reproducible builds
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
+            manifestPlaceholders.TERMUX_API_SHARED_USER_ID = "com.termux.api"
         }
 
         debug {
             signingConfig signingConfigs.debug
             applicationIdSuffix ".debug"
+            manifestPlaceholders.TERMUX_API_SHARED_USER_ID = "com.termux.api.debug"
         }
     }
 

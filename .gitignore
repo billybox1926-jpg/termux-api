@@ -1,7 +1,6 @@
 # Built application files
 build/
 release/
-!app/src/release/
 *.apk
 *.so
 .externalNativeBuild
