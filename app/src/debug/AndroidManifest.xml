@@ -9,6 +9,11 @@
             android:exported="true"
             tools:node="merge"
             tools:replace="android:exported" />
+
+        <!-- Narrow receiver to start KeepAliveService from adb / external callers -->
+        <receiver
+            android:name="com.termux.api.StartServiceReceiver"
+            android:exported="true" />
     </application>
 
 </manifest>
