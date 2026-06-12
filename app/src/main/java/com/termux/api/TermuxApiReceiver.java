@@ -5,6 +5,7 @@ import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.os.Build;
 import android.provider.Settings;
 import android.widget.Toast;
 
@@ -14,13 +15,20 @@ import com.termux.api.apis.BrightnessAPI;
 import com.termux.api.apis.CallLogAPI;
 import com.termux.api.apis.CameraInfoAPI;
 import com.termux.api.apis.CameraPhotoAPI;
+import com.termux.api.apis.CameraVideoAPI;
+import com.termux.api.apis.CalendarAPI;
 import com.termux.api.apis.ClipboardAPI;
 import com.termux.api.apis.ContactListAPI;
 import com.termux.api.apis.DialogAPI;
 import com.termux.api.apis.DownloadAPI;
 import com.termux.api.apis.FingerprintAPI;
+import com.termux.api.apis.FileDialogAPI;
+import com.termux.api.apis.AlarmClockAPI;
+import com.termux.api.apis.AlarmManagerAPI;
+import com.termux.api.apis.AppManagerAPI;
 import com.termux.api.apis.InfraredAPI;
 import com.termux.api.apis.JobSchedulerAPI;
+import com.termux.api.apis.KeyboardAPI;
 import com.termux.api.apis.KeystoreAPI;
 import com.termux.api.apis.LocationAPI;
 import com.termux.api.apis.MediaPlayerAPI;
@@ -44,9 +52,31 @@ import com.termux.api.apis.TorchAPI;
 import com.termux.api.apis.UsbAPI;
 import com.termux.api.apis.VibrateAPI;
 import com.termux.api.apis.VolumeAPI;
+import com.termux.api.apis.BleAPI;
+import com.termux.api.apis.VpnAPI;
+import com.termux.api.apis.MediaProjectionAPI;
+import com.termux.api.apis.AccessibilityAPI;
+import com.termux.api.apis.MprisAPI;
+import com.termux.api.apis.RawContactsAPI;
+import com.termux.api.apis.NetworkBindAPI;
+import com.termux.api.apis.DeviceLockAPI;
+import com.termux.api.apis.BluetoothAudioAPI;
+import com.termux.api.apis.MdnsDiscoveryAPI;
+import com.termux.api.apis.ImeSwitcherAPI;
+import com.termux.api.apis.FitnessAPI;
+import com.termux.api.apis.ScreenshotAPI;
+import com.termux.api.apis.WebViewAPI;
+import com.termux.api.apis.MmsAPI;
+import com.termux.api.apis.MicStreamAPI;
+import com.termux.api.apis.UsbHidAPI;
+import com.termux.api.apis.UsbSerialAPI;
+import com.termux.api.apis.WidgetAPI;
+import com.termux.api.apis.SessionTextAPI;
+import com.termux.api.apis.MediaControlAPI;
 import com.termux.api.apis.WallpaperAPI;
 import com.termux.api.apis.WifiAPI;
 import com.termux.api.activities.TermuxApiPermissionActivity;
+import com.termux.api.apis.ApiStatusAPI;
 import com.termux.api.util.ResultReturner;
 import com.termux.shared.data.IntentUtils;
 import com.termux.shared.logger.Logger;
@@ -62,6 +92,12 @@ public class TermuxApiReceiver extends BroadcastReceiver {
         TermuxAPIApplication.setLogConfig(context, false);
         Logger.logDebug(LOG_TAG, "Intent Received:\n" + IntentUtils.getIntentString(intent));
 
+        // Start the KeepAliveService to keep the process alive so that the
+        // SocketListener (owned by the service) keeps running after onReceive
+        // returns. Without this, Android kills the process immediately after
+        // onReceive and the socket disappears.
+        restartApiService(context);
+
         try {
             doWork(context, intent);
         } catch (Throwable t) {
@@ -70,8 +106,13 @@ public class TermuxApiReceiver extends BroadcastReceiver {
             // behaviour from the Android system.
             Logger.logStackTraceWithMessage(LOG_TAG, message, t);
 
-            TermuxPluginUtils.sendPluginCommandErrorNotification(context, LOG_TAG,
-                    TermuxConstants.TERMUX_API_APP_NAME + " Error", message, t);
+            try {
+                TermuxPluginUtils.sendPluginCommandErrorNotification(context, LOG_TAG,
+                        TermuxConstants.TERMUX_API_APP_NAME + " Error", message, t);
+            } catch (SecurityException e) {
+                // PendingIntent UID mismatch when debug package tries to send as com.termux
+                Logger.logDebug(LOG_TAG, "SecurityException sending error notification: " + e.getMessage());
+            }
 
             ResultReturner.noteDone(this, intent);
         }
@@ -81,6 +122,10 @@ public class TermuxApiReceiver extends BroadcastReceiver {
         String apiMethod = intent.getStringExtra("api_method");
         if (apiMethod == null) {
             Logger.logError(LOG_TAG, "Missing 'api_method' extra");
+            // Fix for issue #844: return error instead of silently ignoring
+            ResultReturner.returnData(this, intent, out -> {
+                out.println("Error: Missing 'api_method' extra. Invalid action may have been used.");
+            });
             return;
         }
 
@@ -100,6 +145,10 @@ public class TermuxApiReceiver extends BroadcastReceiver {
                     Intent settingsIntent = new Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS);
                     settingsIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                     context.startActivity(settingsIntent);
+                    // Fix for issue #466: return error instead of hanging
+                    ResultReturner.returnData(this, intent, out -> {
+                        out.println("Error: WRITE_SETTINGS permission not granted. Please enable it in Android settings.");
+                    });
                     return;
                 }
                 BrightnessAPI.onReceive(this, context, intent);
@@ -112,9 +161,23 @@ public class TermuxApiReceiver extends BroadcastReceiver {
                     CameraPhotoAPI.onReceive(this, context, intent);
                 }
                 break;
+            // Fix for issue #231: camera video recording
+            case "CameraVideo":
+                if (TermuxApiPermissionActivity.checkAndRequestPermissions(context, intent,
+                        Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO)) {
+                    CameraVideoAPI.onReceive(this, context, intent);
+                }
+                break;
             case "CallLog":
                 if (TermuxApiPermissionActivity.checkAndRequestPermissions(context, intent, Manifest.permission.READ_CALL_LOG)) {
                     CallLogAPI.onReceive(context, intent);
+                }
+                break;
+            // Fix for issue #260: calendar API
+            case "Calendar":
+                if (TermuxApiPermissionActivity.checkAndRequestPermissions(context, intent,
+                        Manifest.permission.READ_CALENDAR, Manifest.permission.WRITE_CALENDAR)) {
+                    CalendarAPI.onReceive(this, context, intent);
                 }
                 break;
             case "Clipboard":
@@ -134,6 +197,22 @@ public class TermuxApiReceiver extends BroadcastReceiver {
             case "Fingerprint":
                 FingerprintAPI.onReceive(context, intent);
                 break;
+            // Fix for issue #380: list and launch apps
+            case "AppManager":
+                AppManagerAPI.onReceive(this, context, intent);
+                break;
+            // Fix for issue #305: AlarmManager API
+            case "AlarmManager":
+                AlarmManagerAPI.onReceive(this, context, intent);
+                break;
+            // Fix for issue #390: AlarmClock API
+            case "AlarmClock":
+                AlarmClockAPI.onReceive(this, context, intent);
+                break;
+            // Fix for issues #566/#567: File dialog and intent result
+            case "FileDialog":
+                FileDialogAPI.onReceive(this, context, intent);
+                break;
             case "InfraredFrequencies":
                 if (TermuxApiPermissionActivity.checkAndRequestPermissions(context, intent, Manifest.permission.TRANSMIT_IR)) {
                     InfraredAPI.onReceiveCarrierFrequency(this, context, intent);
@@ -146,6 +225,15 @@ public class TermuxApiReceiver extends BroadcastReceiver {
                 break;
             case "JobScheduler":
                 JobSchedulerAPI.onReceive(this, context, intent);
+                break;
+            case "KeyboardHide":
+                KeyboardAPI.onReceiveHide(context, intent);
+                break;
+            case "KeyboardShow":
+                KeyboardAPI.onReceiveShow(context, intent);
+                break;
+            case "KeyboardVisible":
+                KeyboardAPI.onReceiveVisible(context, intent);
                 break;
             case "Keystore":
                 KeystoreAPI.onReceive(this, intent);
@@ -176,6 +264,10 @@ public class TermuxApiReceiver extends BroadcastReceiver {
                 if (!NotificationServiceEnabled) {
                     Toast.makeText(context,"Please give Termux:API Notification Access", Toast.LENGTH_LONG).show();
                     context.startActivity(new Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+                    // Fix for issue #466: return error instead of hanging
+                    ResultReturner.returnData(this, intent, out -> {
+                        out.println("Error: Notification access not enabled. Please enable it in Android settings.");
+                    });
                 } else {
                     NotificationListAPI.onReceive(this, context, intent);
                 }
@@ -255,6 +347,9 @@ public class TermuxApiReceiver extends BroadcastReceiver {
             case "Volume":
                 VolumeAPI.onReceive(this, context, intent);
                 break;
+            case "MediaControl":
+                MediaControlAPI.onReceive(context, intent);
+                break;
             case "Wallpaper":
                 WallpaperAPI.onReceive(context, intent);
                 break;
@@ -269,8 +364,132 @@ public class TermuxApiReceiver extends BroadcastReceiver {
             case "WifiEnable":
                 WifiAPI.onReceiveWifiEnable(this, context, intent);
                 break;
+            // Fix for issue #334/#678: WiFi rescan
+            case "WifiRescan":
+                if (TermuxApiPermissionActivity.checkAndRequestPermissions(context, intent, Manifest.permission.ACCESS_FINE_LOCATION)) {
+                    WifiAPI.onReceiveWifiRescan(this, context, intent);
+                }
+                break;
+            // Fix for issue #242: WiFi connect
+            case "WifiConnect":
+                if (TermuxApiPermissionActivity.checkAndRequestPermissions(context, intent, Manifest.permission.ACCESS_FINE_LOCATION)) {
+                    WifiAPI.onReceiveWifiConnect(this, context, intent);
+                }
+                break;
+            // Fix for issue #352: restart the API service
+            case "Restart":
+                restartApiService(context);
+                ResultReturner.returnData(this, intent, out -> out.println("API service restart initiated"));
+                break;
+            // ApiStatus: return app identity, socket address, and listener state
+            case "ApiStatus":
+                ApiStatusAPI.onReceive(this, context, intent);
+                break;
+            // Fix for issue #713: BLE scanning
+            case "Ble":
+                BleAPI.onReceive(this, context, intent);
+                break;
+            // Fix for issue #545: VPN API
+            case "Vpn":
+                VpnAPI.onReceive(this, context, intent);
+                break;
+            // Fix for issue #816: MediaProjection
+            case "MediaProjection":
+                MediaProjectionAPI.onReceive(this, context, intent);
+                break;
+            // Fix for issue #828: Accessibility API
+            case "Accessibility":
+                AccessibilityAPI.onReceive(this, context, intent);
+                break;
+            // Fix for issue #531: MPRIS media session bridge
+            case "Mpris":
+                MprisAPI.onReceive(this, context, intent);
+                break;
+            // Fix for issue #766: Raw contacts read/write
+            case "RawContacts":
+                if (TermuxApiPermissionActivity.checkAndRequestPermissions(context, intent,
+                        Manifest.permission.READ_CONTACTS, Manifest.permission.WRITE_CONTACTS)) {
+                    RawContactsAPI.onReceive(this, context, intent);
+                }
+                break;
+            // Fix for issue #771: bind process to network
+            case "NetworkBind":
+                NetworkBindAPI.onReceive(this, context, intent);
+                break;
+            // Fix for issue #403: lock device
+            case "DeviceLock":
+                DeviceLockAPI.onReceive(this, context, intent);
+                break;
+            // Fix for issue #681: Bluetooth headset microphone
+            case "BluetoothAudio":
+                BluetoothAudioAPI.onReceive(this, context, intent);
+                break;
+            // Fix for issue #688: mDNS discovery
+            case "MdnsDiscovery":
+                MdnsDiscoveryAPI.onReceive(this, context, intent);
+                break;
+            // Fix for issue #284: IME switcher
+            case "ImeSwitcher":
+                ImeSwitcherAPI.onReceive(this, context, intent);
+                break;
+            // Fix for issue #350: fitness sensors
+            case "Fitness":
+                FitnessAPI.onReceive(this, context, intent);
+                break;
+            // Fix for issue #456: screenshot
+            case "Screenshot":
+                ScreenshotAPI.onReceive(this, context, intent);
+                break;
+            // Fix for issue #802: WebView
+            case "WebView":
+                WebViewAPI.onReceive(this, context, intent);
+                break;
+            // Fix for issue #240: MMS
+            case "Mms":
+                if (TermuxApiPermissionActivity.checkAndRequestPermissions(context, intent,
+                        Manifest.permission.SEND_SMS, Manifest.permission.READ_PHONE_STATE)) {
+                    MmsAPI.onReceive(this, context, intent);
+                }
+                break;
+            // Fix for issue #360: mic streaming
+            case "MicStream":
+                if (TermuxApiPermissionActivity.checkAndRequestPermissions(context, intent,
+                        Manifest.permission.RECORD_AUDIO)) {
+                    MicStreamAPI.onReceive(this, context, intent);
+                }
+                break;
+            // Fix for issue #393: USB HID (YubiKey)
+            case "UsbHid":
+                UsbHidAPI.onReceive(this, context, intent);
+                break;
+            // Fix for issue #395: USB-serial bridge
+            case "UsbSerial":
+                UsbSerialAPI.onReceive(this, context, intent);
+                break;
+            // Fix for issue #394: homescreen widget
+            case "Widget":
+                WidgetAPI.onReceive(this, context, intent);
+                break;
+            // Fix for issue #608: session text
+            case "SessionText":
+                SessionTextAPI.onReceive(this, context, intent);
+                break;
             default:
                 Logger.logError(LOG_TAG, "Unrecognized 'api_method' extra: '" + apiMethod + "'");
+        }
+    }
+
+    // Fix for issue #352: restart the KeepAliveService
+    private static void restartApiService(Context context) {
+        try {
+            Intent serviceIntent = new Intent(context, KeepAliveService.class);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(serviceIntent);
+            } else {
+                context.startService(serviceIntent);
+            }
+        } catch (Exception e) {
+            Logger.logStackTraceWithMessage(LOG_TAG, "Failed to restart API service", e);
         }
     }
 

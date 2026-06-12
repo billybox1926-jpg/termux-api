@@ -34,3 +34,6 @@ Thumbs.db
 
 # Temp/backup files
 *~
+
+artifacts/
+build-output/

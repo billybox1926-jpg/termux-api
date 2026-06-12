@@ -4,6 +4,9 @@ import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
 import android.media.MediaPlayer;
+import android.media.session.MediaSession;
+import android.media.session.PlaybackState;
+import android.os.Build;
 import android.os.IBinder;
 import android.os.PowerManager;
 
@@ -26,6 +29,39 @@ public class MediaPlayerAPI {
      */
     public static void onReceive(final Context context, final Intent intent) {
         Logger.logDebug(LOG_TAG, "onReceive");
+
+        // Fix for issue #323: handle stdin playback by piping to temp file first
+        if ("playstdin".equals(intent.getStringExtra("action"))) {
+            // We need to handle this specially - read stdin in background
+            ResultReturner.returnData(context, intent, new ResultReturner.WithInput() {
+                @Override
+                public void writeResult(java.io.PrintWriter out) {
+                    try {
+                        // Read all stdin data and write to temp file
+                        java.io.File tempFile = java.io.File.createTempFile("termux_mplayer_", ".tmp",
+                                context.getCacheDir());
+                        tempFile.deleteOnExit();
+                        java.io.FileOutputStream fos = new java.io.FileOutputStream(tempFile);
+                        byte[] buffer = new byte[8192];
+                        int bytesRead;
+                        while ((bytesRead = in.read(buffer)) != -1) {
+                            fos.write(buffer, 0, bytesRead);
+                        }
+                        fos.close();
+
+                        // Now start the service to play the temp file
+                        Intent playerService = new Intent(context, MediaPlayerService.class);
+                        playerService.setAction("play");
+                        playerService.putExtra("file", tempFile.getCanonicalPath());
+                        context.startService(playerService);
+                        out.println("Playing stdin stream (" + tempFile.length() + " bytes)");
+                    } catch (Exception e) {
+                        out.println("Error: " + e.getMessage());
+                    }
+                }
+            });
+            return;
+        }
 
         // Create intent for starting our player service and make sure
         // we retain all relevant info from this intent
@@ -64,6 +100,9 @@ public class MediaPlayerAPI {
 
         protected static MediaPlayer mediaPlayer;
 
+        // Fix for issue #516: MediaSession for headset controls
+        protected static MediaSession mediaSession;
+
         // do we currently have a track to play?
         protected static boolean hasTrack;
 
@@ -82,7 +121,72 @@ public class MediaPlayerAPI {
                 mediaPlayer.setWakeMode(getApplicationContext(), PowerManager.PARTIAL_WAKE_LOCK);
                 mediaPlayer.setVolume(1.0f, 1.0f);
             }
+            // Fix for issue #516: initialize MediaSession for headset controls
+            if (mediaSession == null) {
+                initMediaSession(getApplicationContext());
+            }
             return mediaPlayer;
+        }
+
+        // Fix for issue #516: initialize MediaSession for headset button support
+        protected static void initMediaSession(Context appContext) {
+            mediaSession = new MediaSession(appContext, "TermuxMediaPlayer");
+            mediaSession.setFlags(MediaSession.FLAG_HANDLES_MEDIA_BUTTONS |
+                    MediaSession.FLAG_HANDLES_TRANSPORT_CONTROLS);
+            mediaSession.setCallback(new MediaSession.Callback() {
+                @Override
+                public void onPlay() {
+                    if (hasTrack && mediaPlayer != null && !mediaPlayer.isPlaying()) {
+                        mediaPlayer.start();
+                        updatePlaybackState(PlaybackState.STATE_PLAYING);
+                    }
+                }
+
+                @Override
+                public void onPause() {
+                    if (hasTrack && mediaPlayer != null && mediaPlayer.isPlaying()) {
+                        mediaPlayer.pause();
+                        updatePlaybackState(PlaybackState.STATE_PAUSED);
+                    }
+                }
+
+                @Override
+                public void onStop() {
+                    if (hasTrack && mediaPlayer != null) {
+                        mediaPlayer.stop();
+                        mediaPlayer.reset();
+                        hasTrack = false;
+                        updatePlaybackState(PlaybackState.STATE_STOPPED);
+                    }
+                }
+
+                @Override
+                public void onSkipToNext() {
+                    // Not supported for single-track playback
+                }
+
+                @Override
+                public void onSkipToPrevious() {
+                    // Not supported for single-track playback
+                }
+            });
+            updatePlaybackState(PlaybackState.STATE_NONE);
+        }
+
+        // Fix for issue #516: update playback state for MediaSession
+        protected static void updatePlaybackState(int state) {
+            if (mediaSession == null) return;
+            long actions = PlaybackState.ACTION_PLAY | PlaybackState.ACTION_PAUSE |
+                    PlaybackState.ACTION_PLAY_PAUSE | PlaybackState.ACTION_STOP;
+            PlaybackState.Builder stateBuilder = new PlaybackState.Builder()
+                    .setActions(actions)
+                    .setState(state, 0, 1.0f);
+            mediaSession.setPlaybackState(stateBuilder.build());
+            if (state == PlaybackState.STATE_PLAYING || state == PlaybackState.STATE_PAUSED) {
+                mediaSession.setActive(true);
+            } else {
+                mediaSession.setActive(false);
+            }
         }
 
         /**
@@ -124,6 +228,11 @@ public class MediaPlayerAPI {
                 mediaPlayer.release();
                 mediaPlayer = null;
             }
+            // Fix for issue #516: release MediaSession
+            if (mediaSession != null) {
+                mediaSession.release();
+                mediaSession = null;
+            }
         }
 
         @Override
@@ -141,6 +250,8 @@ public class MediaPlayerAPI {
         public void onCompletion(MediaPlayer mediaPlayer) {
             hasTrack = false;
             mediaPlayer.reset();
+            // Fix for issue #516: update MediaSession playback state on completion
+            updatePlaybackState(PlaybackState.STATE_STOPPED);
         }
 
         protected static MediaCommandHandler getMediaCommandHandler(final String command) {
@@ -149,6 +260,8 @@ public class MediaPlayerAPI {
                     return infoHandler;
                 case "play":
                     return playHandler;
+                case "playstdin":
+                    return playStdinHandler;  // Fix for issue #323
                 case "pause":
                     return pauseHandler;
                 case "resume":
@@ -238,6 +351,8 @@ public class MediaPlayerAPI {
                 player.start();
                 hasTrack = true;
                 trackName = mediaFile.getName();
+                // Fix for issue #516: update MediaSession playback state
+                updatePlaybackState(PlaybackState.STATE_PLAYING);
                 result.message = "Now Playing: " + trackName;
                 return result;
             }
@@ -303,6 +418,46 @@ public class MediaPlayerAPI {
                     result.message = "Stopped playback\nTrack cleared";
                 } else {
                     result.message = "No track to stop";
+                }
+                return result;
+            }
+        };
+
+        // Fix for issue #323: play media from stdin by piping to temp file
+        static MediaCommandHandler playStdinHandler = new MediaCommandHandler() {
+            @Override
+            public MediaCommandResult handle(MediaPlayer player, Context context, Intent intent) {
+                MediaCommandResult result = new MediaCommandResult();
+                try {
+                    // Read all data from stdin via the input socket
+                    java.io.InputStream in = new java.io.FileInputStream(
+                            intent.getStringExtra("stdin_fd"));
+                    java.io.File tempFile = java.io.File.createTempFile("termux_mplayer_", ".tmp",
+                            context.getCacheDir());
+                    tempFile.deleteOnExit();
+                    java.io.FileOutputStream out = new java.io.FileOutputStream(tempFile);
+                    byte[] buffer = new byte[8192];
+                    int bytesRead;
+                    while ((bytesRead = in.read(buffer)) != -1) {
+                        out.write(buffer, 0, bytesRead);
+                    }
+                    out.close();
+                    in.close();
+
+                    if (hasTrack) {
+                        player.stop();
+                        player.reset();
+                        hasTrack = false;
+                    }
+
+                    player.setDataSource(tempFile.getCanonicalPath());
+                    player.prepare();
+                    player.start();
+                    hasTrack = true;
+                    trackName = "stdin";
+                    result.message = "Now Playing: stdin stream";
+                } catch (Exception e) {
+                    result.error = "Error playing stdin: " + e.getMessage();
                 }
                 return result;
             }

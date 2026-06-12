@@ -9,11 +9,21 @@ import android.content.IntentFilter;
 import android.os.BatteryManager;
 import android.os.Build;
 import android.util.JsonWriter;
+import android.os.Handler;
+import android.os.Looper;
 
 import com.termux.api.TermuxApiReceiver;
 import com.termux.api.util.ResultReturner;
 import com.termux.api.util.ResultReturner.ResultJsonWriter;
 import com.termux.shared.logger.Logger;
+
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 public class BatteryStatusAPI {
 
@@ -26,14 +36,58 @@ public class BatteryStatusAPI {
 
         sTargetSdkVersion = context.getApplicationContext().getApplicationInfo().targetSdkVersion;
 
+        // Fix for issue #558: Add timeout for battery status retrieval on low-RAM devices
+        final Context appContext = context.getApplicationContext();
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        Future<Intent> future = executor.submit(new Callable<Intent>() {
+            @Override
+            public Intent call() throws Exception {
+                // registerReceiver is usually instant for sticky broadcasts, but on low-RAM
+                // Android Go devices it may hang; we use a Future timeout as a safety net
+                Intent batteryStatus = appContext.registerReceiver(null, new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
+                return batteryStatus != null ? batteryStatus : new Intent();
+            }
+        });
+        try {
+            Intent batteryStatus = future.get(5, TimeUnit.SECONDS);
+            // Write result, handling possible Exception from writeBatteryStatus
+            try {
+                writeBatteryStatus(apiReceiver, appContext, intent, batteryStatus);
+            } catch (Exception e) {
+                Logger.logStackTraceWithMessage(LOG_TAG, "Battery status write error", e);
+                ResultReturner.returnData(apiReceiver, intent, out -> {
+                    out.println("Error: " + e.getMessage());
+                });
+                return;
+            }
+        } catch (TimeoutException e) {
+            Logger.logError(LOG_TAG, "Battery status timed out after 5 seconds");
+            future.cancel(true);
+            ResultReturner.returnData(apiReceiver, intent, out -> {
+                out.println("Error: Battery status timed out after 5 seconds");
+            });
+        } catch (ExecutionException | InterruptedException e) {
+            Logger.logStackTraceWithMessage(LOG_TAG, "Battery status error", e);
+            ResultReturner.returnData(apiReceiver, intent, out -> {
+                out.println("Error: " + e.getMessage());
+            });
+        } finally {
+            executor.shutdownNow();
+        }
+    }
+
+    /**
+     * Write battery status JSON to output stream, using the pre-fetched battery Intent
+     */
+    static void writeBatteryStatus(TermuxApiReceiver apiReceiver, final Context context, Intent intent, Intent batteryStatus) {
+        sTargetSdkVersion = context.getApplicationContext().getApplicationInfo().targetSdkVersion;
+
         ResultReturner.returnData(apiReceiver, intent, new ResultJsonWriter() {
             @SuppressLint("DefaultLocale")
             @Override
             public void writeJson(JsonWriter out) throws Exception {
                 // - https://cs.android.com/android/platform/superproject/+/android-15.0.0_r1:frameworks/base/services/core/java/com/android/server/BatteryService.java;l=745
-                Intent batteryStatus = context.registerReceiver(null, new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
-                if (batteryStatus == null) batteryStatus = new Intent();
-
+                // Battery status was fetched in onReceive with a 5-second timeout; on timeout this is an empty Intent
                 int batteryLevel = batteryStatus.getIntExtra(BatteryManager.EXTRA_LEVEL, -1);
                 int batteryScale = batteryStatus.getIntExtra(BatteryManager.EXTRA_SCALE, -1);
 

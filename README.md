@@ -1,341 +1,237 @@
-# Termux:API
+# Termux:API Fork Workbench
 
-[![Build status](https://github.com/termux/termux-api/workflows/Build/badge.svg)](https://github.com/termux/termux-api/actions)
-[![Join the chat at https://gitter.im/termux/termux](https://badges.gitter.im/termux/termux.svg)](https://gitter.im/termux/termux)
-[![License: GPLv3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+[![Debug APK CI](https://img.shields.io/github/actions/workflow/status/billybox1926-jpg/termux-api/android-debug.yml?branch=workbench-api-updates&label=debug%20APK&logo=githubactions&logoColor=white)](https://github.com/billybox1926-jpg/termux-api/actions/workflows/android-debug.yml?query=branch%3Aworkbench-api-updates)
+[![Workbench branch](https://img.shields.io/badge/branch-workbench--api--updates-0969da?logo=git&logoColor=white)](https://github.com/billybox1926-jpg/termux-api/tree/workbench-api-updates)
+[![Companion package](https://img.shields.io/badge/package-termux--api--package-2ea44f?logo=gnubash&logoColor=white)](https://github.com/billybox1926-jpg/termux-api-package)
+[![License: GPLv3](https://img.shields.io/badge/license-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
-Termux:API is an Android app that exposes Android system APIs to Termux — letting you access device hardware and OS features directly from the command line, shell scripts, and programs.
+This repository is a focused fork of **Termux:API**, the Android app that lets Termux commands talk to Android system APIs. It is maintained as a CI-first workbench for upstream-friendly fixes, Android runtime experiments, and package/app integration work.
 
-Latest version: **v0.53.0**
-
----
-
-## Table of Contents
-
-- [What It Does](#what-it-does)
-- [Installation](#installation)
-- [Prerequisites](#prerequisites)
-- [Available APIs](#available-apis)
-- [How It Works](#how-it-works)
-- [Building From Source](#building-from-source)
-- [Project Structure](#project-structure)
-- [Contributing](#contributing)
-- [License](#license)
+> This is not an official Termux release channel. Debug APKs and workbench builds are test artifacts. Install them only when you understand the matching Termux app, Termux:API app, package helper, Android package name, and signing relationship involved.
 
 ---
 
-## What It Does
+## Media
 
-Termux:API bridges the gap between Termux's Linux-like terminal environment and the Android operating system. Without it, Termux scripts cannot access device hardware or privileged OS features. With it, you can:
+![Termux:API workbench preview](docs/assets/screenshot.png)
 
-- Read sensors (accelerometer, gyroscope, light, proximity, etc.)
-- Take photos and read camera info
-- Get GPS location
-- Send and read SMS
-- Access call logs and contacts
-- Control the flashlight/torch
-- Show notifications, toasts, and dialogs
-- Control volume, brightness, and wallpaper
-- Play and record audio
-- Access the clipboard
-- Scan NFC tags
-- Interact with USB devices
-- Query battery status
-- Vibrate the device
-- Run jobs with JobScheduler
-- Access the Android Keystore
-- Use fingerprint authentication
-- Share files and content
-- Download files
-- Access storage via SAF (Storage Access Framework)
-- Scan media files
-- Convert speech to text and text to speech
-- Control WiFi (scan, connect, get info)
-- Make phone calls
-- Send infrared signals
+Current workbench preview showing the debug APK / CI-focused Termux:API fork state.
 
-All of this is accessible from simple command-line scripts inside Termux.
+## What this app does
+
+Termux runs as a terminal app. Android device features such as sensors, notifications, storage pickers, cameras, media controls, and telephony are owned by the Android framework. Termux needs an installed Android app to bridge those APIs safely.
+
+A normal API call flows through the companion command package and returns plain terminal output:
+
+```text
+Termux shell command
+  -> wrapper script
+  -> termux-api native helper
+  -> socket / broadcast bridge
+  -> TermuxApiReceiver
+  -> Android API implementation
+  -> stdout / stderr response back to Termux
+```
+
+No root access is required for normal supported APIs. Android permissions, package identity, and signing compatibility still matter.
 
 ---
 
-## Installation
+## Current fork focus
 
-### F-Droid (Recommended)
+This fork carries changes on workbench branches before they are split into clean upstream pull requests.
 
-Install from [F-Droid](https://f-droid.org/en/packages/com.termux.api/).
-
-### Debug Builds (Latest Features)
-
-Per-commit debug builds are available from [GitHub Actions](https://github.com/termux/termux-api/actions/workflows/github_action_build.yml?query=branch%3Amaster+event%3Apush).
-
-> **Note:** Signature keys differ between F-Droid and debug builds. Before switching installation sources, you must uninstall the Termux app and all installed plugins. See the [Termux app installation guide](https://github.com/termux/termux-app#Installation) for details.
+| Area | Status | Notes |
+| --- | --- | --- |
+| Bug fixes | Complete | 82 upstream bugs fixed |
+| Medium features | Complete | 34 Category F features implemented |
+| Large features | Complete | 6 complex features (VPN, BLE, MediaProjection, etc.) |
+| Client-side wrappers | Complete | 102 wrapper scripts total |
+| Debug runtime lane | Complete | Side-by-side `com.termux.api.debug` testing |
 
 ---
 
-## Prerequisites
+## Repository model
 
-- **Termux app** must be installed (same signing key is required for permissions to work)
-- **Android 7.0 (API 24)** or higher
-- The `termux-api` package installed inside Termux:
+| Repo | Purpose | Active lane |
+| --- | --- | --- |
+| [`termux-api`](https://github.com/billybox1926-jpg/termux-api) | Android app-side API implementation | `workbench-api-updates` |
+| [`termux-api-package`](https://github.com/billybox1926-jpg/termux-api-package) | Termux command wrappers and native helper | `workbench-package-updates` |
 
-```bash
+Most features need both sides:
+
+1. Android implementation in this repo.
+2. Method dispatch in `TermuxApiReceiver`.
+3. Manifest permissions, activities, services, or providers when needed.
+4. Matching wrapper/helper support in `termux-api-package`.
+5. Real-device runtime proof with a matched app/package stack.
+
+---
+
+## Install and use
+
+For normal daily usage, install official Termux-family packages from one compatible source and then install the command package inside Termux:
+
+```sh
 pkg install termux-api
 ```
 
----
+Example commands:
 
-## Available APIs
-
-The following API endpoints are available. Each corresponds to a client script installed with the `termux-api` package.
-
-| API | Description |
-|-----|-------------|
-| `termux-audio` | Get audio info and manage audio |
-| `termux-battery-status` | Query battery status (level, health, temperature, etc.) |
-| `termux-brightness` | Set screen brightness |
-| `termux-call-log` | Read call history |
-| `termux-camera-info` | Get camera device information |
-| `termux-camera-photo` | Take a photo and save it |
-| `termux-clipboard-get` / `termux-clipboard-set` | Read/write clipboard |
-| `termux-contact-list` | List device contacts |
-| `termux-dialog` | Show input dialogs (text, confirm, checkbox, etc.) |
-| `termux-download` | Download files via the download manager |
-| `termux-fingerprint` | Use fingerprint authentication |
-| `termux-infrared-transmit` | Send infrared signals |
-| `termux-job-scheduler` | Schedule background jobs |
-| `termux-keystore` | Access the Android Keystore |
-| `termux-location` | Get device location (GPS/network) |
-| `termux-media-player` | Play/pause/seek media files |
-| `termux-media-scan` | Trigger media scanner on files |
-| `termux-mic-record` | Record audio from the microphone |
-| `termux-nfc` | Read/write NFC tags |
-| `termux-notification` | Show, edit, and remove notifications |
-| `termux-notification-list` | List active notifications |
-| `termux-saf` | Access files via Storage Access Framework |
-| `termux-sensor` | Read device sensors in real time |
-| `termux-share` | Share files or text |
-| `termux-sms-inbox` | Read SMS messages |
-| `termux-sms-send` | Send SMS messages |
-| `termux-speech-to-text` | Convert speech to text |
-| `termux-storage-get` | Pick a file from storage |
-| `termux-telephony-call` | Initiate phone calls |
-| `termux-telephony-cellinfo` | Get cellular network info |
-| `termux-telephony-deviceinfo` | Get telephony device info |
-| `termux-text-to-speech` | Convert text to speech |
-| `termux-toast` | Show a toast message |
-| `termux-torch` | Toggle the flashlight |
-| `termux-usb` | Interact with USB devices |
-| `termux-vibrate` | Vibrate the device |
-| `termux-volume` | Get/set volume levels |
-| `termux-wallpaper` | Set the wallpaper |
-| `termux-wifi-connectioninfo` | Get current WiFi connection info |
-| `termux-wifi-scaninfo` | Scan for WiFi networks |
-| `termux-wifi-enable` | Enable/disable WiFi |
-
-### Quick Examples
-
-```bash
-# Get battery status
+```sh
 termux-battery-status
-
-# Take a photo with the back camera
-termux-camera-photo -c 0 /sdcard/photo.jpg
-
-# Get GPS location
+termux-toast "Hello from Termux"
 termux-location
-
-# Show a notification
-termux-notification --title "Hello" --content "From Termux!" --id 1
-
-# Toggle flashlight on
-termux-torch on
-
-# Read accelerometer sensor data
-termux-sensor -s accelerometer -n 5
-
-# Send an SMS
-termux-sms-send -n +1234567890 "Hello from Termux"
-
-# Show a toast
-termux-toast "Hello, World!"
-
-# Vibrate for 1 second
-termux-vibrate -d 1000
-
-# Get current WiFi info
-termux-wifi-connectioninfo
+termux-notification --title "Termux" --content "API bridge is working"
 ```
 
----
+### Signing and source compatibility
 
-## How It Works
+Termux plugins depend on Android package identity and signing relationships. Do not casually mix F-Droid, GitHub debug, Play Store, or locally signed builds.
 
-The communication between Termux and the Termux:API app happens through Android's broadcast mechanism and Unix domain sockets:
-
-1. The `termux-api` client binary (from the `termux-api` package) creates **two Unix domain sockets** — one for input, one for output.
-2. It passes the socket addresses to `TermuxApiReceiver` (a broadcast receiver in the Android app) via:
-
-   ```
-   /system/bin/am broadcast ${BROADCAST_RECEIVER} --es socket_input ${INPUT_SOCKET} --es socket_output ${OUTPUT_SOCKET}
-   ```
-
-3. The input socket forwards stdin from the client to the relevant API handler class.
-4. The output socket sends the API response back to the client's stdout.
-
-This design means the client scripts never need to run as root — the Android app handles all privileged operations and returns results through the socket pair.
+If you switch installation sources, uninstall the related Termux apps/plugins first unless you intentionally know the packages and signing keys are compatible. See the [Termux app installation guide](https://github.com/termux/termux-app#installation) for upstream guidance.
 
 ---
 
-## Building From Source
+## Debug APK workflow
+
+This fork uses GitHub Actions as the build authority for debug APKs. Local Windows builds are useful for quick inspection, but CI is the green/red gate.
+
+The debug workflow builds from `workbench-api-updates` and uploads an APK artifact with a commit-stamped filename, for example:
+
+```text
+termux-api-app_0.53.0+<short-sha>.github.debug.apk
+```
+
+Side-by-side debug testing targets:
+
+```text
+package:  com.termux.api.debug
+receiver: com.termux.api.debug/com.termux.api.TermuxApiReceiver
+socket:   com.termux.api.debug://listen
+```
+
+Raw `adb shell am broadcast` is useful only to prove receiver delivery. Full API proof should go through a matching `termux-api` helper because `ResultReturner` expects socket extras created by the native helper.
+
+---
+
+## Build from source
 
 ### Requirements
 
-- Android SDK (compileSdk 35, minSdk 24, targetSdk 28)
-- Java 11
-- Gradle 8.7.3+
+* Android SDK with `compileSdkVersion=35`
+* Android 7.0 / API 24 minimum runtime
+* Java 11-compatible toolchain
+* Gradle wrapper from this repository
 
-### Build Steps
+### Linux, macOS, or Termux-style shell
 
-```bash
-# Clone the repo
-git clone https://github.com/termux/termux-api.git
-cd termux-api
-
-# Build debug APK
-./gradlew assembleDebug
-
-# Build release APK
-./gradlew assembleRelease
+```sh
+./gradlew clean :app:assembleDebug --no-daemon --console=plain
 ```
 
-The output APK will be at `app/build/outputs/apk/`.
+### Windows PowerShell
 
-### Important Notes
+```powershell
+.\gradlew.bat clean :app:assembleDebug --no-daemon --console=plain
+```
 
-- The app **must be signed with the same key as the main Termux app** for API permissions to work. The debug build uses `app/testkey_untrusted.jks`.
-- The `termux-shared` library dependency is pulled from JitPack. If you need to modify it, see the [Termux Libraries wiki](https://github.com/termux/termux-app/wiki/Termux-Libraries).
+APK outputs are written under:
+
+```text
+app/build/outputs/apk/
+```
+
+Debug APKs are signed with the repository test key. Treat them as test artifacts unless you also control the matching Termux app and package helper target.
 
 ---
 
-## Project Structure
+## Project layout
 
-```
+```text
 termux-api/
+├── .github/
+│   ├── workflows/
+│   │   └── android-debug.yml
+│   └── PULL_REQUEST_TEMPLATE.md
 ├── app/
-│   ├── build.gradle              # App-level Gradle config
-│   ├── testkey_untrusted.jks     # Debug signing key
-│   └── src/main/
-│       ├── java/com/termux/api/
-│       │   ├── TermuxAPIApplication.java       # Application class
-│       │   ├── TermuxApiReceiver.java          # Broadcast receiver (entry point)
-│       │   ├── TermuxAPIConstants.java         # Shared constants
-│       │   ├── KeepAliveService.java           # Foreground service for background work
-│       │   ├── SocketListener.java             # Socket server for API communication
-│       │   ├── apis/                           # Individual API implementations
-│       │   │   ├── AudioAPI.java
-│       │   │   ├── BatteryStatusAPI.java
-│       │   │   ├── BrightnessAPI.java
-│       │   │   ├── CallLogAPI.java
-│       │   │   ├── CameraInfoAPI.java
-│       │   │   ├── CameraPhotoAPI.java
-│       │   │   ├── ClipboardAPI.java
-│       │   │   ├── ContactListAPI.java
-│       │   │   ├── DialogAPI.java
-│       │   │   ├── DownloadAPI.java
-│       │   │   ├── FingerprintAPI.java
-│       │   │   ├── InfraredAPI.java
-│       │   │   ├── JobSchedulerAPI.java
-│       │   │   ├── KeystoreAPI.java
-│       │   │   ├── LocationAPI.java
-│       │   │   ├── MediaPlayerAPI.java
-│       │   │   ├── MediaScannerAPI.java
-│       │   │   ├── MicRecorderAPI.java
-│       │   │   ├── NfcAPI.java
-│       │   │   ├── NotificationAPI.java
-│       │   │   ├── NotificationListAPI.java
-│       │   │   ├── SAFAPI.java
-│       │   │   ├── SensorAPI.java
-│       │   │   ├── ShareAPI.java
-│       │   │   ├── SmsInboxAPI.java
-│       │   │   ├── SmsSendAPI.java
-│       │   │   ├── SpeechToTextAPI.java
-│       │   │   ├── StorageGetAPI.java
-│       │   │   ├── TelephonyAPI.java
-│       │   │   ├── TextToSpeechAPI.java
-│       │   │   ├── ToastAPI.java
-│       │   │   ├── TorchAPI.java
-│       │   │   ├── UsbAPI.java
-│       │   │   ├── VibrateAPI.java
-│       │   │   ├── VolumeAPI.java
-│       │   │   ├── WallpaperAPI.java
-│       │   │   └── WifiAPI.java
-│       │   ├── activities/                      # UI activities
-│       │   │   ├── TermuxAPIMainActivity.java
-│       │   │   └── TermuxApiPermissionActivity.java
-│       │   ├── settings/                       # Settings/preferences
-│       │   │   └── ...
-│       │   └── util/                           # Shared utilities
-│       │       ├── JsonUtils.java
-│       │       ├── PendingIntentUtils.java
-│       │       ├── PluginUtils.java
-│       │       ├── ResultReturner.java
-│       │       └── ViewUtils.java
-│       └── AndroidManifest.xml
-├── build.gradle                  # Project-level Gradle config
-├── settings.gradle               # Project settings
-├── gradle.properties             # SDK versions and Gradle options
-├── gradlew / gradlew.bat         # Gradle wrapper
+│   ├── build.gradle
+│   ├── testkey_untrusted.jks
+│   └── src/
+│       ├── debug/
+│       │   └── AndroidManifest.xml
+│       └── main/
+│           ├── AndroidManifest.xml
+│           └── java/com/termux/api/
+│               ├── TermuxApiReceiver.java
+│               ├── SocketListener.java
+│               ├── apis/
+│               ├── activities/
+│               ├── settings/
+│               └── util/
+├── build.gradle
+├── gradle.properties
+├── gradlew / gradlew.bat
 ├── README.md
 └── SECURITY.md
 ```
 
+Most app-side changes land in one of these areas:
+
+| Change | File area |
+| --- | --- |
+| New Android API behavior | `app/src/main/java/com/termux/api/apis/` |
+| Request dispatch | `app/src/main/java/com/termux/api/TermuxApiReceiver.java` |
+| Socket-backed request path | `app/src/main/java/com/termux/api/SocketListener.java` |
+| Permissions / activities / services | `app/src/main/AndroidManifest.xml` |
+| Debug-only package behavior | `app/src/debug/` |
+
+Command wrappers and native helper targeting belong in the companion `termux-api-package` repository.
+
 ---
 
-## Contributing
+## Development standards
 
-Contributions are welcome! Here's how to get started:
+A good change should be small, inspectable, and runtime-aware.
 
-1. **Fork** the repository
-2. **Clone** your fork:
-   ```bash
-   git clone https://github.com/YOUR_USERNAME/termux-api.git
-   ```
-3. **Create a branch** for your feature or fix:
-   ```bash
-   git checkout -b my-feature
-   ```
-4. **Make your changes** and test them
-5. **Commit** with a clear message:
-   ```bash
-   git commit -m "Add: description of your change"
-   ```
-6. **Push** to your fork:
-   ```bash
-   git push origin my-feature
-   ```
-7. **Open a Pull Request** against the `master` branch
+Before a change is considered ready for upstream review:
 
-### Guidelines
+* CI must pass on the relevant workbench branch.
+* Runtime behavior should be tested on a real Android device when the change touches Android APIs.
+* App-side changes that require wrappers should include package-side support.
+* Signing/package identity risks must be called out when debug builds are involved.
+* Logs should show the first real compiler/runtime error, not surrounding noise.
+* Security-sensitive or permission-sensitive changes should explain why the permission is needed.
 
-- Follow the existing code style (Java, no Kotlin)
-- Keep changes focused — one feature/fix per PR
-- Test your changes on a real device if possible
-- Update documentation if you add or change API behavior
-- Be respectful and constructive in discussions
+Keep PRs focused. A clean upstream-ready change should explain the user-visible behavior, include the package-side wrapper when needed, and avoid bundling unrelated cleanup.
 
-### Adding a New API
+---
 
-To add a new API endpoint:
+## Runtime proof checklist
 
-1. Create a new class in `app/src/main/java/com/termux/api/apis/` (e.g., `MyNewAPI.java`)
-2. Register it in `TermuxApiReceiver.java` as a new case
-3. Add any required permissions to `AndroidManifest.xml`
-4. Create a client script in the [termux-api-package](https://github.com/termux/termux-api-package) repo
+Use this checklist when validating an API change:
+
+```text
+[ ] Correct branch and commit are installed
+[ ] APK package name is expected
+[ ] Matching command helper targets the same package/component/socket
+[ ] Receiver delivery is proven
+[ ] Socket-backed helper call returns terminal output
+[ ] Android permission prompts or appops are documented
+[ ] Logcat is checked for crashes or permission denials
+[ ] Rollback path is known before replacing any release package
+```
+
+---
+
+## Security
+
+Security reporting guidance is in [`SECURITY.md`](SECURITY.md). For general Termux security policy, see [https://termux.dev/security](https://termux.dev/security).
+
+Please do not report suspected security vulnerabilities through public issues unless the Termux security policy explicitly directs you to do so.
 
 ---
 
 ## License
 
-This project is released under the [GNU General Public License v3.0](http://www.gnu.org/licenses/gpl-3.0.en.html).
-
-See [LICENSE](LICENSE) for the full text.
+This project is released under the [GNU General Public License v3.0](http://www.gnu.org/licenses/gpl-3.0.en.html). See [`LICENSE`](LICENSE) for the full text.

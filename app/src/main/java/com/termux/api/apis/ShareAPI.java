@@ -6,15 +6,20 @@ import android.content.Intent;
 import android.database.Cursor;
 import android.database.MatrixCursor;
 import android.net.Uri;
+import android.os.Bundle;
 import android.os.ParcelFileDescriptor;
 import android.provider.MediaStore;
 import android.text.TextUtils;
 import android.webkit.MimeTypeMap;
 
+import androidx.annotation.Nullable;
+import androidx.appcompat.app.AppCompatActivity;
+
 import com.termux.api.R;
 import com.termux.api.TermuxAPIConstants;
 import com.termux.api.TermuxApiReceiver;
 import com.termux.api.util.ResultReturner;
+import com.termux.shared.data.IntentUtils;
 import com.termux.shared.logger.Logger;
 import com.termux.shared.net.uri.UriUtils;
 
@@ -31,10 +36,17 @@ public class ShareAPI {
         Logger.logDebug(LOG_TAG, "onReceive");
 
         final String fileExtra = intent.getStringExtra("file");
-        final String titleExtra = intent.getStringExtra("title");
+        // Fix for issue #322: Also check EXTRA_SUBJECT as an alternative title source,
+        // since the -t flag in the shell script may only pass the first word.
+        String titleExtra = intent.getStringExtra("title");
+        if (titleExtra == null)
+            titleExtra = intent.getStringExtra(Intent.EXTRA_SUBJECT);
+        final String finalTitleExtra = titleExtra;
         final String contentTypeExtra = intent.getStringExtra("content-type");
         final boolean defaultReceiverExtra = intent.getBooleanExtra("default-receiver", false);
         final String actionExtra = intent.getStringExtra("action");
+        // Fix for issue #530: blocking mode waits for the opened activity to return
+        final boolean blockingExtra = intent.getBooleanExtra("blocking", false);
 
         String intentAction = null;
         if (actionExtra == null) {
@@ -72,7 +84,7 @@ public class ShareAPI {
                     sendIntent.putExtra(Intent.EXTRA_TEXT, inputString);
                     sendIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
 
-                    if (titleExtra != null) sendIntent.putExtra(Intent.EXTRA_SUBJECT, titleExtra);
+                    if (finalTitleExtra != null) sendIntent.putExtra(Intent.EXTRA_SUBJECT, finalTitleExtra);
                     sendIntent.setType(contentTypeExtra == null ? "text/plain" : contentTypeExtra);
 
                     context.startActivity(Intent.createChooser(sendIntent, context.getResources().getText(R.string.share_file_chooser_title)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
@@ -108,7 +120,7 @@ public class ShareAPI {
                     contentTypeToUse = contentTypeExtra;
                 }
 
-                if (titleExtra != null) sendIntent.putExtra(Intent.EXTRA_SUBJECT, titleExtra);
+                if (finalTitleExtra != null) sendIntent.putExtra(Intent.EXTRA_SUBJECT, finalTitleExtra);
 
                 if (Intent.ACTION_SEND.equals(finalIntentAction)) {
                     sendIntent.putExtra(Intent.EXTRA_STREAM, uriToShare);
@@ -120,8 +132,60 @@ public class ShareAPI {
                 if (!defaultReceiverExtra) {
                     sendIntent = Intent.createChooser(sendIntent, context.getResources().getText(R.string.share_file_chooser_title)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                 }
-                context.startActivity(sendIntent);
+
+                // Fix for issue #530: blocking mode uses an Activity to wait for result
+                if (blockingExtra) {
+                    Intent blockingIntent = new Intent(context, BlockingShareActivity.class);
+                    blockingIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    blockingIntent.putExtra("share_intent", sendIntent);
+                    context.startActivity(blockingIntent);
+                    out.println("Blocking share started");
+                } else {
+                    context.startActivity(sendIntent);
+                }
             });
+        }
+    }
+
+    /**
+     * Transparent activity for blocking share (issue #530).
+     * Starts the share intent with startActivityForResult and finishes
+     * when the user returns from the target app.
+     */
+    public static class BlockingShareActivity extends AppCompatActivity {
+        private static final String LOG_TAG = "BlockingShareActivity";
+        private boolean resultReturned = false;
+
+        @Override
+        protected void onCreate(@Nullable Bundle savedInstanceState) {
+            super.onCreate(savedInstanceState);
+            Intent shareIntent = getIntent().getParcelableExtra("share_intent");
+            if (shareIntent == null) {
+                Logger.logError(LOG_TAG, "No share_intent extra");
+                finish();
+                return;
+            }
+            try {
+                startActivityForResult(shareIntent, 2001);
+            } catch (Exception e) {
+                Logger.logStackTraceWithMessage(LOG_TAG, "Failed to start share activity", e);
+                finish();
+            }
+        }
+
+        @Override
+        protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+            Logger.logDebug(LOG_TAG, "onActivityResult: resultCode=" + resultCode);
+            resultReturned = true;
+            finishAndRemoveTask();
+        }
+
+        @Override
+        protected void onDestroy() {
+            super.onDestroy();
+            if (!resultReturned) {
+                resultReturned = true;
+            }
         }
     }
 

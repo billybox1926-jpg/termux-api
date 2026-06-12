@@ -39,8 +39,11 @@ public class SpeechToTextAPI {
 
         protected SpeechRecognizer mSpeechRecognizer;
         final LinkedBlockingQueue<String> queueu = new LinkedBlockingQueue<>();
+        // Fix for issue #616/#588: track whether speech has ended for timeout fallback
+        volatile boolean speechEnded = false;
 
         private static final String LOG_TAG = "SpeechToTextService";
+        private String mSpeechLanguage = "en-US";
 
         @Override
         public void onCreate() {
@@ -59,6 +62,8 @@ public class SpeechToTextAPI {
 
                 @Override
                 public void onResults(Bundle results) {
+                    // Fix for issue #616/#588: cancel the timeout fallback since results arrived
+                    speechEnded = false;
                     List<String> recognitions = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
                     Logger.logError(LOG_TAG, "RecognitionListener#onResults(" + recognitions + ")");
                     queueu.addAll(recognitions);
@@ -102,13 +107,28 @@ public class SpeechToTextAPI {
                             description = Integer.toString(error);
                     }
                     Logger.logError(LOG_TAG, "RecognitionListener#onError(" + description + ")");
+                    // Fix for issue #616/#588: cancel timeout since error will stop recognition
+                    speechEnded = false;
                     queueu.add(STOP_ELEMENT);
                 }
 
                 @Override
                 public void onEndOfSpeech() {
                     Logger.logError(LOG_TAG, "RecognitionListener#onEndOfSpeech()");
-                    // Don't add STOP_ELEMENT here - wait for onResults which may contain final text (#288)
+                    // Fix for issue #616/#588: if onResults doesn't fire within 5 seconds of onEndOfSpeech,
+                    // stop the recognition gracefully with a timeout fallback
+                    speechEnded = true;
+                    new Thread(() -> {
+                        try {
+                            Thread.sleep(5000);
+                            if (speechEnded) {
+                                Logger.logError(LOG_TAG, "onEndOfSpeech timeout - forcing stop");
+                                queueu.add(STOP_ELEMENT);
+                            }
+                        } catch (InterruptedException e) {
+                            // Do nothing
+                        }
+                    }).start();
                 }
 
                 @Override
@@ -145,7 +165,8 @@ public class SpeechToTextAPI {
             recognizerIntent.putExtra(RecognizerIntent.EXTRA_PROMPT, "Enter shell command");
             recognizerIntent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
             recognizerIntent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 10);
-            recognizerIntent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, "en-US");
+            // Fix for issue #437: support configurable language
+            recognizerIntent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, mSpeechLanguage);
             recognizerIntent.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true);
             mSpeechRecognizer.startListening(recognizerIntent);
         }
@@ -161,6 +182,12 @@ public class SpeechToTextAPI {
         @Override
         protected void onHandleIntent(final Intent intent) {
             Logger.logDebug(LOG_TAG, "onHandleIntent:\n" + IntentUtils.getIntentString(intent));
+
+            // Fix for issue #437: support configurable language
+            String language = intent.getStringExtra("language");
+            if (language != null && !language.isEmpty()) {
+                mSpeechLanguage = language;
+            }
 
             ResultReturner.returnData(this, intent, new ResultReturner.WithInput() {
                 @Override

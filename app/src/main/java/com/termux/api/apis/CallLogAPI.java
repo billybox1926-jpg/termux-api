@@ -52,6 +52,8 @@ public class CallLogAPI {
             int durationIndex = cur.getColumnIndex(CallLog.Calls.DURATION);
             int callTypeIndex = cur.getColumnIndex(CallLog.Calls.TYPE);
             int simTypeIndex = cur.getColumnIndex(CallLog.Calls.PHONE_ACCOUNT_ID);
+            // Fix for issue #441: also get subscription_id for dual-SIM identification
+            int subscriptionIdIndex = cur.getColumnIndex("subscription_id");
 
             SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault());
             out.beginArray();
@@ -65,6 +67,13 @@ public class CallLogAPI {
                 out.name("date").value(getDateString(cur.getLong(dateIndex), dateFormat));
                 out.name("duration").value(getTimeString(cur.getInt(durationIndex)));
                 out.name("sim_id").value(cur.getString(simTypeIndex));
+                // Fix for issue #441: include subscription_id for dual-SIM
+                if (subscriptionIdIndex >= 0) {
+                    String subscriptionId = cur.getString(subscriptionIdIndex);
+                    if (subscriptionId != null) {
+                        out.name("subscription_id").value(subscriptionId);
+                    }
+                }
 
                 cur.moveToPrevious();
                 out.endObject();

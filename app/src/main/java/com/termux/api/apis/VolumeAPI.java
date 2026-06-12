@@ -69,6 +69,16 @@ public class VolumeAPI {
             int volume = intent.getIntExtra("volume", -1);
             int maxVolume = audioManager.getStreamMaxVolume(stream);
             int currentVolume = audioManager.getStreamVolume(stream);
+            // Fix for issue #346: Use FLAG_SHOW_UI for more reliable volume changes on some devices
+            // and ADJUST_SAME when device is in silent mode for STREAM_MUSIC
+            int flags;
+            if (stream == AudioManager.STREAM_MUSIC && audioManager.getRingerMode() == AudioManager.RINGER_MODE_SILENT) {
+                flags = AudioManager.FLAG_SHOW_UI;
+                audioManager.adjustStreamVolume(stream, AudioManager.ADJUST_SAME, flags);
+                return;
+            } else {
+                flags = AudioManager.FLAG_SHOW_UI;
+            }
 
             if (volume >= 0) {
                 // Absolute volume set
@@ -77,7 +87,7 @@ public class VolumeAPI {
                 } else if (volume >= maxVolume) {
                     volume = maxVolume;
                 }
-                audioManager.setStreamVolume(stream, volume, 0);
+                audioManager.setStreamVolume(stream, volume, flags);
             } else {
                 // Check for relative volume adjustment (#592)
                 int relative = intent.getIntExtra("relative", Integer.MIN_VALUE);
@@ -88,7 +98,7 @@ public class VolumeAPI {
                     } else if (newVolume > maxVolume) {
                         newVolume = maxVolume;
                     }
-                    audioManager.setStreamVolume(stream, newVolume, 0);
+                    audioManager.setStreamVolume(stream, newVolume, flags);
                 }
             }
         } catch (Exception e) {

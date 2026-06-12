@@ -363,6 +363,8 @@ public class SensorAPI {
             protected int counter;
             protected int limit;
             protected SocketWriterErrorListener errorListener;
+            // Fix for issue #289: cache last written JSON to skip duplicate output
+            protected String lastWrittenJson = "";
 
 
             public SensorOutputWriter(String outputSocketAddress, int delay) {
@@ -409,8 +411,13 @@ public class SensorAPI {
                                     Logger.logInfo(LOG_TAG, "SensorOutputWriter interrupted: " + e.getMessage());
                                 }
                                 semaphore.acquire();
-                                writer.write(sensorReadout.toString(INDENTATION) + "\n");
-                                writer.flush();
+                                String currentJson = sensorReadout.toString(INDENTATION);
+                                // Fix for issue #289: skip writing if values haven't changed
+                                if (!currentJson.equals(lastWrittenJson)) {
+                                    writer.write(currentJson + "\n");
+                                    writer.flush();
+                                    lastWrittenJson = currentJson;
+                                }
                                 semaphore.release();
 
                                 if (++counter >= limit) {

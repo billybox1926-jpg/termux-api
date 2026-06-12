@@ -15,6 +15,8 @@ import com.termux.shared.logger.Logger;
 public class TorchAPI {
     private static Camera legacyCamera;
     private static boolean torchOn = false;
+    // Fix for issue #884: cache the torch camera ID to avoid re-querying CameraCharacteristics every toggle
+    private static String cachedTorchCameraId = null;
 
     private static final String LOG_TAG = "TorchAPI";
 
@@ -48,7 +50,11 @@ public class TorchAPI {
         }
         try {
             final CameraManager cameraManager = (CameraManager) context.getSystemService(Context.CAMERA_SERVICE);
-            String torchCameraId = getTorchCameraId(cameraManager);
+            // Fix for issue #884: use cached camera ID if available, otherwise query and cache it
+            if (cachedTorchCameraId == null) {
+                cachedTorchCameraId = getTorchCameraId(cameraManager);
+            }
+            String torchCameraId = cachedTorchCameraId;
 
             if (torchCameraId != null) {
                 cameraManager.setTorchMode(torchCameraId, enabled);

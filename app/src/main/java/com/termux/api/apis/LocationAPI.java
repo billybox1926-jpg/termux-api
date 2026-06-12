@@ -56,23 +56,48 @@ public class LocationAPI {
                 switch (request) {
                     case REQUEST_LAST_KNOWN:
                         Location lastKnownLocation = manager.getLastKnownLocation(provider);
+                        // Fix for issue #365: if no last known for requested provider, try other providers
+                        if (lastKnownLocation == null) {
+                            lastKnownLocation = manager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
+                        }
+                        if (lastKnownLocation == null) {
+                            lastKnownLocation = manager.getLastKnownLocation(LocationManager.PASSIVE_PROVIDER);
+                        }
                         locationToJson(lastKnownLocation, out);
                         break;
                     case REQUEST_ONCE:
-                        // Check if provider is available (#97)
-                        if (!manager.isProviderEnabled(provider)) {
-                            out.beginObject().name("API_ERROR").value("Provider '" + provider + "' is not enabled. Please turn on location services.").endObject();
+                        // Fix for issue #781: handle SecurityException on Android 12+
+                        boolean providerEnabled;
+                        try {
+                            providerEnabled = manager.isProviderEnabled(provider);
+                        } catch (SecurityException e) {
+                            out.beginObject().name("API_ERROR").value("Permission denied: " + e.getMessage()).endObject();
                             break;
                         }
+                        // Fix for issue #365: if GPS not enabled, try network provider
+                        String actualProvider = provider;
+                        if (!providerEnabled) {
+                            if (provider.equals(LocationManager.GPS_PROVIDER) && manager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
+                                actualProvider = LocationManager.NETWORK_PROVIDER;
+                                Logger.logInfo(LOG_TAG, "GPS provider not enabled, falling back to network");
+                            } else {
+                                out.beginObject().name("API_ERROR").value("Provider '" + provider + "' is not enabled. Please turn on location services.").endObject();
+                                break;
+                            }
+                        }
                         final long timeoutMs = intent.getLongExtra("timeout", 60000);
+                        // Fix for issue #226: use final effectively-final variables for lambda
                         final LocationManager finalManager = manager;
-                        final String finalProvider = provider;
+                        final String resolvedProvider = actualProvider;
                         final JsonWriter finalOut = out;
                         final Looper[] looper = new Looper[1];
+                        // Fix for issue #427: also register continuous updates as fallback for faster results
+                        final LocationListener[] fallbackListener = new LocationListener[1];
+                        final boolean[] gotResult = {false};
                         Thread looperThread = new Thread(() -> {
                             Looper.prepare();
                             looper[0] = Looper.myLooper();
-                            finalManager.requestSingleUpdate(finalProvider, new LocationListener() {
+                            finalManager.requestSingleUpdate(resolvedProvider, new LocationListener() {
                                 @Override
                                 public void onStatusChanged(String changedProvider, int status, Bundle extras) {}
 
@@ -85,14 +110,50 @@ public class LocationAPI {
                                 @Override
                                 public void onLocationChanged(Location location) {
                                     try {
+                                        gotResult[0] = true;
                                         locationToJson(location, finalOut);
                                     } catch (IOException e) {
                                         Logger.logStackTraceWithMessage(LOG_TAG, "Writing json", e);
                                     } finally {
+                                        // Fix for issue #427: remove fallback listener if it was registered
+                                        if (fallbackListener[0] != null) {
+                                            finalManager.removeUpdates(fallbackListener[0]);
+                                        }
                                         Looper.myLooper().quit();
                                     }
                                 }
                             }, null);
+                            // Fix for issue #427: register continuous updates as fallback after half timeout
+                            long halfTimeout = timeoutMs / 2;
+                            if (halfTimeout > 2000) {
+                                fallbackListener[0] = new LocationListener() {
+                                    @Override
+                                    public void onLocationChanged(Location location) {
+                                        if (!gotResult[0]) {
+                                            try {
+                                                gotResult[0] = true;
+                                                locationToJson(location, finalOut);
+                                            } catch (IOException e) {
+                                                Logger.logStackTraceWithMessage(LOG_TAG, "Writing json", e);
+                                            } finally {
+                                                finalManager.removeUpdates(this);
+                                                if (looper[0] != null) looper[0].quit();
+                                            }
+                                        }
+                                    }
+                                    @Override public void onStatusChanged(String p, int s, Bundle e) {}
+                                    @Override public void onProviderEnabled(String p) {}
+                                    @Override public void onProviderDisabled(String p) {}
+                                };
+                                new Thread(() -> {
+                                    try { Thread.sleep(halfTimeout); } catch (InterruptedException ignored) {}
+                                    if (!gotResult[0] && looper[0] != null) {
+                                        try {
+                                            finalManager.requestLocationUpdates(resolvedProvider, 1000, 0, fallbackListener[0]);
+                                        } catch (SecurityException ignored) {}
+                                    }
+                                }).start();
+                            }
                             Looper.loop();
                         });
                         looperThread.start();
@@ -180,6 +241,8 @@ public class LocationAPI {
         long elapsedMs = (SystemClock.elapsedRealtimeNanos() - lastKnownLocation.getElapsedRealtimeNanos()) / 1000000;
         out.name("elapsedMs").value(elapsedMs);
         out.name("provider").value(lastKnownLocation.getProvider());
+        // Fix for issue #247: add GPS fix time from location.getTime()
+        out.name("time").value(lastKnownLocation.getTime());
         out.endObject();
     }
 }

@@ -24,10 +24,10 @@ android {
 
     signingConfigs {
         debug {
-            storeFile file('testkey_untrusted.jks')
-            keyAlias 'alias'
-            storePassword 'xrj45yWGLbsO7W0v'
-            keyPassword 'xrj45yWGLbsO7W0v'
+            storeFile file('termux-debug-shared.jks')
+            keyAlias 'termuxdebug'
+            storePassword 'termuxdebug'
+            keyPassword 'termuxdebug'
         }
     }
 
@@ -40,8 +40,17 @@ android {
 
         debug {
             signingConfig signingConfigs.debug
-            applicationIdSuffix ".debug"
+            // Matched-stack debug: same key as Termux app, sharedUserId works.
+            // No applicationIdSuffix — this is the real com.termux.api.
+            manifestPlaceholders.TERMUX_PACKAGE_NAME = "com.termux"
+            manifestPlaceholders.TERMUX_HOST_PACKAGE_NAME = "com.termux"
+
+            buildConfigField "String", "SOCKET_ADDRESS", "\"com.termux.api://listen\""
         }
+    }
+
+    buildFeatures {
+        buildConfig true
     }
 
     compileOptions {
@@ -50,10 +59,6 @@ android {
 
         sourceCompatibility JavaVersion.VERSION_11
         targetCompatibility JavaVersion.VERSION_11
-    }
-
-    buildFeatures {
-        buildConfig = true
     }
 
     applicationVariants.all { variant ->
@@ -71,7 +76,7 @@ android {
 }
 
 dependencies {
-    coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:1.1.5"
+    coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:2.0.4"
 
     implementation "com.google.android.material:material:1.12.0"
     implementation "androidx.biometric:biometric:1.2.0-alpha05"

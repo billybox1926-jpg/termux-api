@@ -72,12 +72,14 @@ public class NotificationAPI {
                 NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
 
                 if (!TextUtils.isEmpty(inputString)) {
-                    // Handle both real newlines and literal \n strings (#274)
+                    // Fix for issue #274: Handle both real newlines and literal \n strings
                     String displayText = inputString.replace("\\n", "\n");
                     if (displayText.contains("\n")) {
                         NotificationCompat.BigTextStyle style = new NotificationCompat.BigTextStyle();
                         style.bigText(displayText);
                         notification.setStyle(style);
+                        // Also set contentText so the collapsed notification shows the first line
+                        notification.setContentText(displayText);
                     } else {
                         notification.setContentText(displayText);
                     }
@@ -294,16 +296,22 @@ public class NotificationAPI {
             String mediaPause = intent.getStringExtra("media-pause");
             String mediaPlay = intent.getStringExtra("media-play");
             String mediaNext = intent.getStringExtra("media-next");
+            // Fix for issue #881: allow specifying media_state to show only play or only pause
+            String mediaState = intent.getStringExtra("media-state");
 
             boolean hasAnyButton = mediaPrevious != null || mediaPause != null || mediaPlay != null || mediaNext != null;
 
             if (hasAnyButton) {
                 if (smallIconName == null) {
-                    notification.setSmallIcon(android.R.drawable.ic_media_play);
+                    // Fix for issue #881: use appropriate icon based on media state
+                    if ("playing".equals(mediaState)) {
+                        notification.setSmallIcon(android.R.drawable.ic_media_pause);
+                    } else {
+                        notification.setSmallIcon(android.R.drawable.ic_media_play);
+                    }
                 }
 
                 int actionCount = 0;
-                int compactIndex = 0;
 
                 if (mediaPrevious != null) {
                     PendingIntent previousIntent = createMutableAction(context, mediaPrevious, actionCount);
@@ -311,16 +319,33 @@ public class NotificationAPI {
                     actionCount++;
                 }
 
-                if (mediaPause != null) {
-                    PendingIntent pauseIntent = createMutableAction(context, mediaPause, actionCount);
-                    notification.addAction(new NotificationCompat.Action(android.R.drawable.ic_media_pause, "pause", pauseIntent));
-                    actionCount++;
-                }
-
-                if (mediaPlay != null) {
-                    PendingIntent playIntent = createMutableAction(context, mediaPlay, actionCount);
-                    notification.addAction(new NotificationCompat.Action(android.R.drawable.ic_media_play, "play", playIntent));
-                    actionCount++;
+                // Fix for issue #881: if media_state is "playing", show pause; if "paused", show play
+                if ("playing".equals(mediaState)) {
+                    // Show pause button (or both if explicitly provided)
+                    if (mediaPause != null) {
+                        PendingIntent pauseIntent = createMutableAction(context, mediaPause, actionCount);
+                        notification.addAction(new NotificationCompat.Action(android.R.drawable.ic_media_pause, "pause", pauseIntent));
+                        actionCount++;
+                    }
+                } else if ("paused".equals(mediaState)) {
+                    // Show play button (or both if explicitly provided)
+                    if (mediaPlay != null) {
+                        PendingIntent playIntent = createMutableAction(context, mediaPlay, actionCount);
+                        notification.addAction(new NotificationCompat.Action(android.R.drawable.ic_media_play, "play", playIntent));
+                        actionCount++;
+                    }
+                } else {
+                    // No media_state specified: show both if provided (backward compatible)
+                    if (mediaPause != null) {
+                        PendingIntent pauseIntent = createMutableAction(context, mediaPause, actionCount);
+                        notification.addAction(new NotificationCompat.Action(android.R.drawable.ic_media_pause, "pause", pauseIntent));
+                        actionCount++;
+                    }
+                    if (mediaPlay != null) {
+                        PendingIntent playIntent = createMutableAction(context, mediaPlay, actionCount);
+                        notification.addAction(new NotificationCompat.Action(android.R.drawable.ic_media_play, "play", playIntent));
+                        actionCount++;
+                    }
                 }
 
                 if (mediaNext != null) {
@@ -340,7 +365,11 @@ public class NotificationAPI {
             }
         }
 
-        if (groupKey != null) notification.setGroup(groupKey);
+        if (groupKey != null) {
+            // Fix for issue #300: setGroupSummary ensures grouping works on all Android versions
+            notification.setGroup(groupKey);
+            notification.setGroupSummary(true);
+        }
 
         if (ledColor != 0) {
             notification.setLights(ledColor, ledOnMs, ledOffMs);
@@ -358,7 +387,10 @@ public class NotificationAPI {
             notification.setVibrate(vibrateArg);
         }
 
-        if (useSound) notification.setSound(Settings.System.DEFAULT_NOTIFICATION_URI);
+        // Fix for issue #319: only set sound on builder if useSound is true
+        if (useSound) {
+            notification.setSound(Settings.System.DEFAULT_NOTIFICATION_URI);
+        }
 
         notification.setAutoCancel(true);
 
@@ -390,6 +422,8 @@ public class NotificationAPI {
         for (int button = 1; button <= 3; button++) {
             String buttonText = intent.getStringExtra("button_text_" + button);
             String buttonAction = intent.getStringExtra("button_action_" + button);
+            // Fix for issue #311: support setting clipboard directly from notification action
+            String buttonClipboard = intent.getStringExtra("button_clipboard_" + button);
 
             if (buttonText != null && buttonAction != null) {
                 if (buttonAction.contains("$REPLY")) {
@@ -401,6 +435,10 @@ public class NotificationAPI {
                 PendingIntent pi = createAction(context, buttonAction);
                     notification.addAction(new NotificationCompat.Action(android.R.drawable.ic_input_add, buttonText, pi));
                 }
+            } else if (buttonText != null && buttonClipboard != null) {
+                // Fix for issue #311: clipboard action button
+                PendingIntent pi = createClipboardAction(context, buttonClipboard, button);
+                notification.addAction(new NotificationCompat.Action(android.R.drawable.ic_input_add, buttonText, pi));
             }
         }
 
@@ -505,6 +543,19 @@ public class NotificationAPI {
             // Cancel the notification
             notificationManager.cancel(notificationId, 0);
         }
+    }
+
+    /**
+     * Fix for issue #311: create a PendingIntent that broadcasts to set the clipboard directly.
+     */
+    static PendingIntent createClipboardAction(final Context context, String clipboardText, int requestCode) {
+        Intent clipboardIntent = new Intent();
+        clipboardIntent.setClassName(TermuxConstants.TERMUX_API_PACKAGE_NAME, TermuxAPIConstants.TERMUX_API_RECEIVER_NAME);
+        clipboardIntent.putExtra("api_method", "Clipboard");
+        clipboardIntent.putExtra("set", true);
+        clipboardIntent.putExtra("text", clipboardText);
+        return PendingIntent.getBroadcast(context, requestCode + 100, clipboardIntent,
+                PendingIntentUtils.getPendingIntentImmutableFlag());
     }
 
     static Intent createExecuteIntent(String action){

@@ -94,7 +94,13 @@ public class DialogAPI {
 
             // Set NightMode.APP_NIGHT_MODE
             TermuxThemeUtils.setAppNightMode(context);
-            boolean shouldEnableDarkTheme = ThemeUtils.shouldEnableDarkTheme(this, NightMode.getAppNightMode().getName());
+
+            // Fix for issue #297: support dark mode flag from client
+            String darkModeExtra = intent.getStringExtra("dark_mode");
+            boolean forceDark = "true".equals(darkModeExtra) || "yes".equals(darkModeExtra) || "1".equals(darkModeExtra);
+            boolean forceLight = "false".equals(darkModeExtra) || "no".equals(darkModeExtra) || "0".equals(darkModeExtra);
+
+            boolean shouldEnableDarkTheme = forceDark || (!forceLight && ThemeUtils.shouldEnableDarkTheme(this, NightMode.getAppNightMode().getName()));
             if (shouldEnableDarkTheme)
                 this.setTheme(R.style.DialogTheme_Dark);
 
@@ -107,7 +113,9 @@ public class DialogAPI {
             } else {
                 InputResult result = new InputResult();
                 result.error = "Unknown Input Method: " + methodType;
+                // Fix for issue #557: call finish() after postResult to avoid hanging from shortcuts
                 postResult(context, result);
+                finish();
             }
         }
 
@@ -240,6 +248,10 @@ public class DialogAPI {
                         return new TextInputMethod(activity);
                     case "time":
                         return new TimeInputMethod(activity);
+                    case "multiselect":
+                        return new MultiSelectInputMethod(activity);
+                    case "daterange":
+                        return new DateRangeInputMethod(activity);
                     default:
                         return null;
                 }
@@ -272,7 +284,7 @@ public class DialogAPI {
             public String text = "";
             public String error = "";
             public int code = 0;
-            public static int index = -1;
+            public int index = -1;  // Fix for issue #414: was static, shared across all instances
             public List<Value> values = new ArrayList<>();
         }
 
@@ -640,7 +652,7 @@ public class DialogAPI {
             String getResult() {
                 int radioIndex = radioGroup.indexOfChild(widgetView.findViewById(radioGroup.getCheckedRadioButtonId()));
                 RadioButton radioButton = (RadioButton) radioGroup.getChildAt(radioIndex);
-                InputResult.index = radioIndex;
+                inputResult.index = radioIndex;  // Fix for issue #414: use instance field, not static
                 return (radioButton != null) ? radioButton.getText().toString() : "";
             }
         }
@@ -704,6 +716,8 @@ public class DialogAPI {
                     textView.setText(values[j]);
                     textView.setTextSize(20);
                     textView.setPadding(56, 56, 56, 56);
+                    // Fix for issue #342: add content description for accessibility
+                    textView.setContentDescription("Option " + (j + 1) + ": " + values[j]);
                     textView.setOnClickListener(view -> {
                         InputResult result = new InputResult();
                         result.text = values[j];
@@ -772,7 +786,7 @@ public class DialogAPI {
 
             @Override
             String getResult() {
-                InputResult.index = widgetView.getSelectedItemPosition();
+                inputResult.index = widgetView.getSelectedItemPosition();  // Fix for issue #414: use instance field
                 return widgetView.getSelectedItem().toString();
             }
 
@@ -933,6 +947,80 @@ public class DialogAPI {
             }
         }
 
+        // Fix for issue #462: MultiSelect input method
+        static class MultiSelectInputMethod extends InputDialog<LinearLayout> {
+            MultiSelectInputMethod(AppCompatActivity activity) { super(activity); }
+            @Override
+            LinearLayout createWidgetView(AppCompatActivity activity) {
+                LinearLayout layout = new LinearLayout(activity);
+                layout.setOrientation(LinearLayout.VERTICAL);
+                String[] values = getInputValues(activity.getIntent());
+                for (int j = 0; j < values.length; ++j) {
+                    CheckBox checkBox = new CheckBox(activity);
+                    checkBox.setText(values[j]);
+                    checkBox.setId(j);
+                    checkBox.setTextSize(18);
+                    checkBox.setPadding(16, 16, 16, 16);
+                    layout.addView(checkBox);
+                }
+                return layout;
+            }
+            @Override
+            String getResult() {
+                int count = widgetView.getChildCount();
+                List<Value> values = new ArrayList<>();
+                StringBuilder sb = new StringBuilder("{");
+                for (int j = 0; j < count; ++j) {
+                    CheckBox box = widgetView.findViewById(j);
+                    if (box.isChecked()) {
+                        Value value = new Value();
+                        value.index = j;
+                        value.text = box.getText().toString();
+                        values.add(value);
+                        sb.append("\"").append(j).append("\":\"").append(box.getText().toString()).append("\",");
+                    }
+                }
+                inputResult.values = values;
+                String result = sb.toString();
+                if (result.endsWith(",")) result = result.substring(0, result.length() - 1);
+                return result + "}";
+            }
+        }
+
+        // Fix for issue #462: DateRange input method
+        static class DateRangeInputMethod extends InputDialog<LinearLayout> {
+            DateRangeInputMethod(AppCompatActivity activity) { super(activity); }
+            @Override
+            LinearLayout createWidgetView(AppCompatActivity activity) {
+                LinearLayout layout = new LinearLayout(activity);
+                layout.setOrientation(LinearLayout.VERTICAL);
+                TextView startLabel = new TextView(activity);
+                startLabel.setText("Start Date:");
+                startLabel.setTextSize(16);
+                startLabel.setPadding(16, 16, 16, 8);
+                layout.addView(startLabel);
+                DatePicker startDatePicker = new DatePicker(activity);
+                startDatePicker.setId(100);
+                layout.addView(startDatePicker);
+                TextView endLabel = new TextView(activity);
+                endLabel.setText("End Date:");
+                endLabel.setTextSize(16);
+                endLabel.setPadding(16, 16, 16, 8);
+                layout.addView(endLabel);
+                DatePicker endDatePicker = new DatePicker(activity);
+                endDatePicker.setId(101);
+                layout.addView(endDatePicker);
+                return layout;
+            }
+            @Override
+            String getResult() {
+                DatePicker startPicker = widgetView.findViewById(100);
+                DatePicker endPicker = widgetView.findViewById(101);
+                return String.format("{\"start\":\"%04d-%02d-%02d\",\"end\":\"%04d-%02d-%02d\"}",
+                        startPicker.getYear(), startPicker.getMonth() + 1, startPicker.getDayOfMonth(),
+                        endPicker.getYear(), endPicker.getMonth() + 1, endPicker.getDayOfMonth());
+            }
+        }
 
         /**
          * Base Dialog class to extend from for adding specific views / widgets to a Dialog interface
@@ -989,6 +1077,8 @@ public class DialogAPI {
             }
 
             void postCanceledResult() {
+                // Fix for issue #414: don't overwrite if result already returned
+                if (activity.isFinishing()) return;
                 inputResult.code = Dialog.BUTTON_NEGATIVE;
                 resultListener.onResult(inputResult);
             }
@@ -1085,8 +1175,8 @@ public class DialogAPI {
                 if (button == Dialog.BUTTON_POSITIVE) {
                     inputResult.text = getResult();
                 } else {
-                    // CANCEL or outside tap - reset index to avoid stale value (#541)
-                    InputResult.index = -1;
+                // CANCEL or outside tap - reset index to avoid stale value (#541, #414)
+                    inputResult.index = -1;
                 }
                 return inputResult;
             }

@@ -267,9 +267,13 @@ public class MicRecorderAPI {
 
                 if (newFile.exists() && newFile.isFile()) {
                     result.error = String.format("File: %s already exists! Please specify a different filename", newFile.getName());
+                    // Fix for issue #648: Stop service after file already exists error
+                    context.stopService(intent);
                 } else {
                     if (isRecording) {
-                        result.error = "Recording already in progress!";
+                        // Fix for issue #648 and #649: Stop service and include the currently recording file path in error
+                        result.error = String.format("Recording already in progress: %s", file.getAbsolutePath());
+                        context.stopService(intent);
                     } else {
                         try {
                             file = newFile;

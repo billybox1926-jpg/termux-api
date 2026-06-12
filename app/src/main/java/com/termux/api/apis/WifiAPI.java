@@ -3,18 +3,25 @@ package com.termux.api.apis;
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.location.LocationManager;
+import android.net.NetworkRequest;
 import android.net.wifi.ScanResult;
+import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
+import android.net.wifi.WifiNetworkSpecifier;
+import android.os.Build;
+import android.os.Bundle;
+import android.provider.Settings;
 import android.text.TextUtils;
 import android.text.format.Formatter;
 import android.util.JsonWriter;
-
+import androidx.annotation.Nullable;
+import androidx.appcompat.app.AppCompatActivity;
 import com.termux.api.TermuxApiReceiver;
 import com.termux.api.util.ResultReturner;
 import com.termux.shared.logger.Logger;
-
 import java.util.List;
 
 public class WifiAPI {
@@ -34,7 +41,14 @@ public class WifiAPI {
                 if (info == null) {
                     out.name("API_ERROR").value("No current connection");
                 } else {
-                    out.name("bssid").value(info.getBSSID());
+                    // Fix for issue #304: check if location is enabled to warn about stale data
+                    String bssid = info.getBSSID();
+                    String ssid = info.getSSID().replaceAll("\"", "");
+                    // Fix for issue #304: on Android 8.1+ with location disabled, BSSID/SSID are hidden
+                    if (bssid == null || bssid.equals("02:00:00:00:00:00") || ssid.equals("<unknown ssid>")) {
+                        out.name("_warning").value("Location may be enabled but WiFi location data is hidden. Ensure location is enabled in settings.");
+                    }
+                    out.name("bssid").value(bssid);
                     out.name("frequency_mhz").value(info.getFrequency());
                     //noinspection deprecation - formatIpAddress is deprecated, but we only have a ipv4 address here:
                     out.name("ip").value(Formatter.formatIpAddress(info.getIpAddress()));
@@ -42,7 +56,7 @@ public class WifiAPI {
                     out.name("mac_address").value(info.getMacAddress());
                     out.name("network_id").value(info.getNetworkId());
                     out.name("rssi").value(info.getRssi());
-                    out.name("ssid").value(info.getSSID().replaceAll("\"", ""));
+                    out.name("ssid").value(ssid);
                     out.name("ssid_hidden").value(info.getHiddenSSID());
                     out.name("supplicant_state").value(info.getSupplicantState().toString());
                 }
@@ -56,8 +70,21 @@ public class WifiAPI {
         return lm.isProviderEnabled(LocationManager.GPS_PROVIDER);
     }
 
+    // Fix for issue #268: check location permission before scan
+    static boolean hasLocationPermission(Context context) {
+        return context.checkSelfPermission(android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED;
+    }
+
     public static void onReceiveWifiScanInfo(TermuxApiReceiver apiReceiver, final Context context, final Intent intent) {
         Logger.logDebug(LOG_TAG, "onReceiveWifiScanInfo");
+
+        // Fix for issue #268: check for location permission
+        if (!hasLocationPermission(context)) {
+            ResultReturner.returnData(apiReceiver, intent, out -> {
+                out.println("Error: ACCESS_FINE_LOCATION permission not granted. Termux:API needs location permission to scan WiFi networks. Grant it in Android app settings.");
+            });
+            return;
+        }
 
         ResultReturner.returnData(apiReceiver, intent, new ResultReturner.ResultJsonWriter() {
             @Override
@@ -122,6 +149,7 @@ public class WifiAPI {
         });
     }
 
+    // Fix for issue #330: use Settings Panel on Android 10+
     public static void onReceiveWifiEnable(TermuxApiReceiver apiReceiver, final Context context, final Intent intent) {
         Logger.logDebug(LOG_TAG, "onReceiveWifiEnable");
 
@@ -130,9 +158,120 @@ public class WifiAPI {
             public void writeJson(JsonWriter out) {
                 WifiManager manager = (WifiManager) context.getSystemService(Context.WIFI_SERVICE);
                 boolean state = intent.getBooleanExtra("enabled", false);
-                manager.setWifiEnabled(state);
+                // Fix for issue #330: setWifiEnabled deprecated on Android 10+
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    // Use Settings Panel on Android 10+
+                    Intent panelIntent = new Intent(Settings.Panel.ACTION_WIFI);
+                    panelIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    context.startActivity(panelIntent);
+                } else {
+                    try {
+                        manager.setWifiEnabled(state);
+                    } catch (SecurityException e) {
+                        Logger.logStackTraceWithMessage(LOG_TAG, "Failed to toggle WiFi", e);
+                        try {
+                            out.beginObject().name("API_ERROR").value("Failed to toggle WiFi: " + e.getMessage()).endObject();
+                        } catch (Exception jsonException) {
+                            throw new RuntimeException(jsonException);
+                        }
+                    }
+                }
             }
         });
+    }
+
+    // Fix for issue #334/#678: actively trigger WiFi rescan
+    public static void onReceiveWifiRescan(TermuxApiReceiver apiReceiver, final Context context, final Intent intent) {
+        Logger.logDebug(LOG_TAG, "onReceiveWifiRescan");
+
+        // Check location permission for scan (#268)
+        if (!hasLocationPermission(context)) {
+            ResultReturner.returnData(apiReceiver, intent, out -> {
+                out.println("Error: ACCESS_FINE_LOCATION permission not granted.");
+            });
+            return;
+        }
+
+        ResultReturner.returnData(apiReceiver, intent, new ResultReturner.ResultJsonWriter() {
+            @Override
+            public void writeJson(JsonWriter out) throws Exception {
+                WifiManager manager = (WifiManager) context.getApplicationContext().getSystemService(Context.WIFI_SERVICE);
+                boolean scanStarted = manager.startScan();
+                out.beginObject();
+                out.name("scan_initiated").value(scanStarted);
+                out.endObject();
+            }
+        });
+    }
+
+    // Fix for issue #242: WiFi connect
+    public static void onReceiveWifiConnect(TermuxApiReceiver apiReceiver, Context context, Intent intent) {
+        String ssid = intent.getStringExtra("ssid");
+        String password = intent.getStringExtra("password");
+        String action = intent.getStringExtra("action");
+        if (ssid == null || ssid.isEmpty()) {
+            Intent pi = new Intent(context, WifiPickerActivity.class);
+            pi.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            context.startActivity(pi);
+            ResultReturner.returnData(apiReceiver, intent, out -> out.println("WiFi picker launched"));
+            return;
+        }
+        if ("disconnect".equals(action)) {
+            ResultReturner.returnData(apiReceiver, intent, out -> {
+                try { ((WifiManager) context.getApplicationContext().getSystemService(Context.WIFI_SERVICE)).disconnect(); out.println("Disconnected"); }
+                catch (Exception e) { out.println("ERROR: " + e.getMessage()); }
+            });
+            return;
+        }
+        ResultReturner.returnData(apiReceiver, intent, out -> {
+            try {
+                WifiManager mgr = (WifiManager) context.getApplicationContext().getSystemService(Context.WIFI_SERVICE);
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    WifiNetworkSpecifier.Builder sb = new WifiNetworkSpecifier.Builder().setSsid(ssid);
+                    if (password != null && !password.isEmpty()) sb.setWpa2Passphrase(password);
+                    NetworkRequest nr = new android.net.NetworkRequest.Builder()
+                            .addTransportType(android.net.NetworkCapabilities.TRANSPORT_WIFI)
+                            .setNetworkSpecifier(sb.build()).build();
+                    android.net.ConnectivityManager cm = (android.net.ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
+                    cm.requestNetwork(nr, new android.net.ConnectivityManager.NetworkCallback() {
+                        @Override public void onAvailable(android.net.Network n) { Logger.logInfo(LOG_TAG, "WiFi connected to " + ssid); }
+                        @Override public void onUnavailable() { Logger.logError(LOG_TAG, "WiFi failed " + ssid); }
+                    });
+                } else {
+                    WifiConfiguration cfg = new WifiConfiguration();
+                    cfg.SSID = "\"" + ssid + "\"";
+                    if (password != null && !password.isEmpty()) cfg.preSharedKey = "\"" + password + "\"";
+                    else cfg.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.NONE);
+                    int id = mgr.addNetwork(cfg);
+                    if (id == -1) { out.println("ERROR: Failed to add network"); return; }
+                    mgr.disconnect(); mgr.enableNetwork(id, true); mgr.reconnect();
+                }
+                out.println("Connecting to: " + ssid);
+            } catch (Exception e) { out.println("ERROR: " + e.getMessage()); }
+        });
+    }
+
+    public static class WifiPickerActivity extends AppCompatActivity {
+        boolean done = false;
+        @Override protected void onCreate(@Nullable Bundle savedInstanceState) {
+            super.onCreate(savedInstanceState);
+            WifiManager mgr = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
+            if (mgr == null) { finishAndRemoveTask(); return; }
+            List<ScanResult> results = mgr.getScanResults();
+            if (results == null || results.isEmpty()) {
+                new androidx.appcompat.app.AlertDialog.Builder(this).setTitle("WiFi").setMessage("No networks found")
+                        .setPositiveButton("OK", (d, w) -> finish()).setOnCancelListener(d -> finish()).show();
+                return;
+            }
+            java.util.LinkedHashMap<String, ScanResult> map = new java.util.LinkedHashMap<>();
+            for (ScanResult r : results) { if (r.SSID != null && !r.SSID.isEmpty() && !map.containsKey(r.SSID)) map.put(r.SSID, r); }
+            String[] ssids = map.keySet().toArray(new String[0]);
+            new androidx.appcompat.app.AlertDialog.Builder(this).setTitle("Select WiFi")
+                    .setItems(ssids, (dialog, which) -> {
+                        done = true; ResultReturner.returnData(this, getIntent(), o -> o.println(ssids[which])); finishAndRemoveTask();
+                    }).setOnCancelListener(d -> { if (!done) { done = true; try { ResultReturner.returnData(this, getIntent(), o -> o.println("")); } catch (Exception ignored) {} } finishAndRemoveTask(); }).show();
+        }
+        @Override protected void onDestroy() { super.onDestroy(); if (!done) { done = true; try { ResultReturner.returnData(this, getIntent(), o -> o.println("")); } catch (Exception ignored) {} } }
     }
 
 }

@@ -58,7 +58,24 @@ public class ClipboardAPI {
 
                     @Override
                     public void writeResult(PrintWriter out) {
+                        // Fix for issue #728: Clipboard set is already on a background thread via WithStringInput;
+                        // no additional threading needed. goAsync() is handled by ResultReturner.
                         clipboard.setPrimaryClip(ClipData.newPlainText("", inputString));
+                        // Fix for issue #332: auto-clear sensitive clipboard after timeout
+                        boolean sensitive = intent.getBooleanExtra("sensitive", false);
+                        if (sensitive) {
+                            int timeout = intent.getIntExtra("sensitive_timeout", 30);
+                            new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+                                try {
+                                    if (clipboard.getPrimaryClip() != null) {
+                                        clipboard.setPrimaryClip(ClipData.newPlainText("", ""));
+                                        Logger.logDebug(LOG_TAG, "Sensitive clipboard auto-cleared after " + timeout + "s");
+                                    }
+                                } catch (Exception e) {
+                                    Logger.logStackTraceWithMessage(LOG_TAG, "Failed to auto-clear clipboard", e);
+                                }
+                            }, timeout * 1000L);
+                        }
                     }
                 });
             } else {
@@ -74,14 +91,32 @@ public class ClipboardAPI {
                                 out.print(text);
                             }
                         }
+                        // Fix for issue #720: Add trailing newline after clipboard text so piping works correctly
+                        out.println();
                     }
                 });
             }
         } else {
+            // Fix for issue #767: preserve empty text by using empty string fallback instead of null
             final String newClipText = intent.getStringExtra("text");
             if (newClipText != null) {
                 // Set clip.
                 clipboard.setPrimaryClip(ClipData.newPlainText("", newClipText));
+                // Fix for issue #332: auto-clear sensitive clipboard after timeout
+                boolean sensitive = intent.getBooleanExtra("sensitive", false);
+                if (sensitive) {
+                    int timeout = intent.getIntExtra("sensitive_timeout", 30);
+                    new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+                        try {
+                            if (clipboard.getPrimaryClip() != null) {
+                                clipboard.setPrimaryClip(ClipData.newPlainText("", ""));
+                                Logger.logDebug(LOG_TAG, "Sensitive clipboard auto-cleared after " + timeout + "s");
+                            }
+                        } catch (Exception e) {
+                            Logger.logStackTraceWithMessage(LOG_TAG, "Failed to auto-clear clipboard", e);
+                        }
+                    }, timeout * 1000L);
+                }
             }
 
             ResultReturner.returnData(apiReceiver, intent, out -> {
@@ -94,6 +129,7 @@ public class ClipboardAPI {
                         for (int i = 0; i < itemCount; i++) {
                             Item item = clipData.getItemAt(i);
                             try {
+                                // Fix for issue #748: coerceToText can return null on some devices
                                 CharSequence text = item.coerceToText(context);
                                 if (text != null && text.length() > 0) {
                                     out.print(text);
@@ -102,10 +138,12 @@ public class ClipboardAPI {
                                 Logger.logError(LOG_TAG, "Failed to coerce clipboard item to text: " + e.getMessage());
                             }
                         }
+                        // Fix for issue #720: Add trailing newline after clipboard text so piping works correctly
+                        out.println();
                     }
                 }
             });
         }
     }
-
 }
+
